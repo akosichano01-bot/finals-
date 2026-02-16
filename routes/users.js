@@ -1,6 +1,6 @@
-const express = require('express');
-const { authenticate, authorize } = require('../middleware/auth');
-const { pool } = require('../config/database');
+import express from 'express';
+import { authenticate, authorize } from '../middleware/auth.js';
+import { poolExport as pool } from '../config/database.js';
 
 const router = express.Router();
 
@@ -19,13 +19,15 @@ router.get('/', authenticate, authorize('manager', 'staff'), async (req, res) =>
     let paramCount = 1;
 
     if (role) {
-      query += ' AND u.role = ?';
+      query += ` AND u.role = $${paramCount++}`;
       params.push(role);
     }
 
     if (search) {
-      query += ' AND (u.name LIKE ? OR u.email LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+      // Ginamit ang ILIKE para sa case-insensitive search sa PostgreSQL
+      query += ` AND (u.name ILIKE $${paramCount} OR u.email ILIKE $${paramCount})`;
+      params.push(`%${search}%`);
+      paramCount++;
     }
 
     query += ' ORDER BY u.created_at DESC';
@@ -53,7 +55,7 @@ router.get('/:id', authenticate, async (req, res) => {
               un.unit_number, un.floor, un.building
        FROM users u
        LEFT JOIN units un ON u.unit_id = un.id
-       WHERE u.id = ?`,
+       WHERE u.id = $1`,
       [id]
     );
 
@@ -74,17 +76,17 @@ router.put('/:id', authenticate, async (req, res) => {
     const { id } = req.params;
     const { name, phone } = req.body;
 
-    // Users can only update their own profile unless they're manager
     if (req.user.role !== 'manager' && req.user.id !== parseInt(id)) {
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
 
     await pool.query(
-      'UPDATE users SET name = ?, phone = ? WHERE id = ?',
+      'UPDATE users SET name = $1, phone = $2 WHERE id = $3',
       [name, phone, id]
     );
+    
     const result = await pool.query(
-      'SELECT id, email, name, role, phone, unit_id FROM users WHERE id = ?',
+      'SELECT id, email, name, role, phone, unit_id FROM users WHERE id = $1',
       [id]
     );
 
@@ -108,9 +110,9 @@ router.delete('/:id', authenticate, authorize('manager'), async (req, res) => {
       return res.status(400).json({ message: 'Cannot delete your own account' });
     }
 
-    const result = await pool.query('DELETE FROM users WHERE id = ?', [id]);
+    const result = await pool.query('DELETE FROM users WHERE id = $1 RETURNING *', [id]);
 
-    if (result.rows[0].affectedRows === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
 
@@ -121,4 +123,4 @@ router.delete('/:id', authenticate, authorize('manager'), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

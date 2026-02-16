@@ -21,7 +21,6 @@ router.post('/paymongo-create', authenticate, async (req, res) => {
     const { bill_id } = req.body;
     if (!bill_id) return res.status(400).json({ message: 'bill_id required' });
 
-    // PostgreSQL: Gamit ang $1
     const billResult = await pool.query('SELECT * FROM bills WHERE id = $1', [bill_id]);
     if (billResult.rows.length === 0) return res.status(404).json({ message: 'Bill not found' });
     
@@ -59,7 +58,6 @@ router.post('/paymongo-create', authenticate, async (req, res) => {
     const checkoutUrl = linkRes.data?.data?.attributes?.checkout_url;
     if (!linkId || !checkoutUrl) return res.status(500).json({ message: 'PayMongo link creation failed' });
 
-    // PostgreSQL Insert
     await pool.query(
       `INSERT INTO payments (bill_id, amount, payment_method, transaction_id, status, paymongo_link_id)
        VALUES ($1, $2, 'paymongo', $3, 'pending', $4)`,
@@ -172,6 +170,20 @@ router.post('/', authenticate, authorize('manager', 'staff'), async (req, res) =
     const billResult = await pool.query('SELECT * FROM bills WHERE id = $1', [bill_id]);
     if (billResult.rows.length === 0) return res.status(404).json({ message: 'Bill not found' });
     
+    // Inayos ang Syntax Error dito (line 177 sa logs mo)
     await pool.query(
-      `INSERT INTO payments (bill_id, amount, payment_method, transaction_id, status) VALUES ($1, $2, 'manual', $3, 'completed')`,
+      `INSERT INTO payments (bill_id, amount, payment_method, transaction_id, status) 
+       VALUES ($1, $2, 'manual', $3, 'completed')`,
       [bill_id, amount, `MANUAL-${Date.now()}`]
+    );
+
+    await pool.query('UPDATE bills SET status = $1 WHERE id = $2', ['paid', bill_id]);
+
+    res.status(201).json({ message: 'Payment recorded successfully' });
+  } catch (error) {
+    console.error('Manual payment error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+export default router;

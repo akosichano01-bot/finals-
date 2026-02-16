@@ -63,11 +63,11 @@ app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   
   try {
-    const [result] = await pool.query('SELECT 1 as ok');
-    console.log('✅ Database connected');
-  } catch (error) {
-    console.error('❌ Database connection error:', error.message);
-  }
+  await pool.query('SELECT 1');
+  console.log('✅ Database connected');
+} catch (error) {
+  console.error('❌ Database connection error:', error.message);
+}
 
   if (process.env.PAYMONGO_SECRET_KEY) {
     console.log('✅ PayMongo configured');
@@ -75,3 +75,4 @@ app.listen(PORT, async () => {
 });
 
 module.exports = app;
+

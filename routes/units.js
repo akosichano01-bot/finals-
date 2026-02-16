@@ -1,6 +1,6 @@
-const express = require('express');
-const { authenticate, authorize } = require('../middleware/auth');
-const { pool } = require('../config/database');
+import express from 'express';
+import { authenticate, authorize } from '../middleware/auth.js';
+import { poolExport as pool } from '../config/database.js';
 
 const router = express.Router();
 
@@ -20,17 +20,17 @@ router.get('/', authenticate, async (req, res) => {
     let paramCount = 1;
 
     if (building) {
-      query += ' AND u.building = ?';
+      query += ` AND u.building = $${paramCount++}`;
       params.push(building);
     }
 
     if (floor) {
-      query += ' AND u.floor = ?';
+      query += ` AND u.floor = $${paramCount++}`;
       params.push(parseInt(floor));
     }
 
     if (status) {
-      query += ' AND u.status = ?';
+      query += ` AND u.status = $${paramCount++}`;
       params.push(status);
     }
 
@@ -54,7 +54,7 @@ router.get('/:id', authenticate, async (req, res) => {
               us.id as tenant_id, us.name as tenant_name, us.email as tenant_email, us.phone as tenant_phone
        FROM units u
        LEFT JOIN users us ON u.id = us.unit_id AND us.role = 'tenant'
-       WHERE u.id = ?`,
+       WHERE u.id = $1`,
       [id]
     );
 
@@ -69,77 +69,20 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-// Create unit (Manager only - Staff cannot add units)
+// Create unit (Manager only)
 router.post('/', authenticate, authorize('manager'), async (req, res) => {
   try {
-    const { unit_number, floor, building, type, rent_amount } = req.body;
+    const { unit_number, floor, building, type, rent_amount, maintenance_status } = req.body;
 
     await pool.query(
       `INSERT INTO units (unit_number, floor, building, type, rent_amount, status, maintenance_status)
-       VALUES (?, ?, ?, ?, ?, 'available', ?)`,
-      [unit_number, floor, building, type, rent_amount || 0, req.body.maintenance_status || 'none']
+       VALUES ($1, $2, $3, $4, $5, 'available', $6)`,
+      [unit_number, floor, building, type, rent_amount || 0, maintenance_status || 'none']
     );
+
     const result = await pool.query(
       'SELECT * FROM units ORDER BY id DESC LIMIT 1'
     );
     res.status(201).json({ message: 'Unit created successfully', unit: result.rows[0] });
   } catch (error) {
-    console.error('Create unit error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Update unit (Manager only; status is auto available/occupied - not editable)
-router.put('/:id', authenticate, authorize('manager'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { unit_number, floor, building, type, rent_amount, maintenance_status } = req.body;
-
-    await pool.query(
-      `UPDATE units 
-       SET unit_number = ?, floor = ?, building = ?, type = ?, rent_amount = ?, maintenance_status = ?
-       WHERE id = ?`,
-      [unit_number, floor, building, type, rent_amount, maintenance_status || 'none', id]
-    );
-    const result = await pool.query('SELECT * FROM units WHERE id = ?', [id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'Unit not found' });
-    }
-
-    res.json({ message: 'Unit updated successfully', unit: result.rows[0] });
-  } catch (error) {
-    console.error('Update unit error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Delete unit (Manager only)
-router.delete('/:id', authenticate, authorize('manager'), async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Check if unit has tenants
-    const tenantCheck = await pool.query(
-      'SELECT id FROM users WHERE unit_id = ?',
-      [id]
-    );
-
-    if (tenantCheck.rows.length > 0) {
-      return res.status(400).json({ message: 'Cannot delete unit with assigned tenants' });
-    }
-
-    const result = await pool.query('DELETE FROM units WHERE id = ?', [id]);
-
-    if (result.rows[0].affectedRows === 0) {
-      return res.status(404).json({ message: 'Unit not found' });
-    }
-
-    res.json({ message: 'Unit deleted successfully' });
-  } catch (error) {
-    console.error('Delete unit error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-module.exports = router;
+    console.

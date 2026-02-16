@@ -3,23 +3,29 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 
-// Load .env
-dotenv.config({ path: path.join(__dirname, '.env') });
+// Load .env - Mas safe na config para sa Render
+dotenv.config(); 
 
 const { pool } = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// --- DITO ANG FIX PARA SA CORS ---
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-  credentials: true
+  origin: [
+    'https://finals-tenant-system.onrender.com', // Iyong live frontend URL
+    'http://localhost:5173'                      // Para sa local testing mo
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files mula sa root at public folder
+// Serve static files
 app.use(express.static(path.join(__dirname))); 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -38,11 +44,10 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Ancheta Apartment API is running' });
 });
 
-// --- ITO ANG DAGDAG NA FIX PARA SA "CANNOT GET /LOGIN" ---
+// Fix para sa Client-side routing (React/Vite)
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
-// -------------------------------------------------------
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -54,19 +59,19 @@ app.use((err, req, res, next) => {
 
 // Start server
 app.listen(PORT, async () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  // Sa Render, gagamitin nito ang PORT na 10000
+  console.log(`🚀 Server running on port ${PORT}`);
   
   try {
-    await pool.query('SELECT 1 as ok');
+    const [result] = await pool.query('SELECT 1 as ok');
     console.log('✅ Database connected');
   } catch (error) {
     console.error('❌ Database connection error:', error.message);
   }
 
   if (process.env.PAYMONGO_SECRET_KEY) {
-    console.log('✅ PayMongo configured (tenant payments)');
+    console.log('✅ PayMongo configured');
   }
 });
 
 module.exports = app;
-

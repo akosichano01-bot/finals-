@@ -14,20 +14,23 @@ dotenv.config({ path: path.join(__dirname, '..', '.env') });
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
-    // ITO ANG FIX: Pinapayagan nito ang self-signed certificate ng Aiven
+    // Pinapayagan nito ang connection sa Render/Aiven PostgreSQL
     rejectUnauthorized: false 
   }
 });
 
-// ES Module Export
-export const poolExport = {
+// --- ITO ANG MGA EXPORTS ---
+
+// 1. Named export na 'pool' para sa server.js line 17
+export const pool = {
   query: (text, params) => pool.query(text, params),
 };
 
+// 2. Named export na 'poolExport' para sa compatibility ng mga routes mo
+export const poolExport = pool;
+
+// 3. Raw pool para sa mga advanced functions
 export const rawPool = pool;
 
-// Default export para sa compatibility
-export default {
-  pool: poolExport,
-  rawPool: pool
-};
+// 4. Default export (para sigurado)
+export default pool;

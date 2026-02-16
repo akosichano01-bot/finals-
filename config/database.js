@@ -1,7 +1,14 @@
-const { Pool } = require('pg');
-const path = require('path');
-const dotenv = require('dotenv');
+import pkg from 'pg';
+const { Pool } = pkg;
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
+// Kinakailangan ang __dirname para mahanap ang .env sa root
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load .env mula sa root folder
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 const pool = new Pool({
@@ -12,9 +19,15 @@ const pool = new Pool({
   }
 });
 
-module.exports = {
-  pool: {
-    query: (text, params) => pool.query(text, params),
-  },
+// ES Module Export
+export const poolExport = {
+  query: (text, params) => pool.query(text, params),
+};
+
+export const rawPool = pool;
+
+// Default export para sa compatibility
+export default {
+  pool: poolExport,
   rawPool: pool
 };

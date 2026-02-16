@@ -1,6 +1,6 @@
-const express = require('express');
-const { authenticate, authorize } = require('../middleware/auth');
-const { pool } = require('../config/database');
+import express from 'express';
+import { authenticate, authorize } from '../middleware/auth.js'; // Dagdagan ng .js
+import { poolExport as pool } from '../config/database.js'; // Import poolExport
 
 const router = express.Router();
 
@@ -22,25 +22,26 @@ router.get('/', authenticate, async (req, res) => {
 
     // Filter by tenant (tenants can only see their own bills)
     if (req.user.role === 'tenant') {
-      query += ' AND b.tenant_id = ?';
+      query += ` AND b.tenant_id = $${paramCount++}`;
       params.push(req.user.id);
     } else if (tenant_id) {
-      query += ' AND b.tenant_id = ?';
+      query += ` AND b.tenant_id = $${paramCount++}`;
       params.push(tenant_id);
     }
 
     if (status) {
-      query += ' AND b.status = ?';
+      query += ` AND b.status = $${paramCount++}`;
       params.push(status);
     }
 
+    // PostgreSQL style date filtering
     if (month) {
-      query += ' AND MONTH(b.due_date) = ?';
+      query += ` AND EXTRACT(MONTH FROM b.due_date) = $${paramCount++}`;
       params.push(parseInt(month));
     }
 
     if (year) {
-      query += ' AND YEAR(b.due_date) = ?';
+      query += ` AND EXTRACT(YEAR FROM b.due_date) = $${paramCount++}`;
       params.push(parseInt(year));
     }
 
@@ -66,7 +67,7 @@ router.get('/:id', authenticate, async (req, res) => {
        FROM bills b
        JOIN users u ON b.tenant_id = u.id
        LEFT JOIN units un ON u.unit_id = un.id
-       WHERE b.id = ?`,
+       WHERE b.id = $1`,
       [id]
     );
 
@@ -76,7 +77,6 @@ router.get('/:id', authenticate, async (req, res) => {
 
     const bill = result.rows[0];
 
-    // Tenants can only view their own bills
     if (req.user.role === 'tenant' && bill.tenant_id !== req.user.id) {
       return res.status(403).json({ message: 'Insufficient permissions' });
     }
@@ -88,8 +88,7 @@ router.get('/:id', authenticate, async (req, res) => {
   }
 });
 
-// Generate monthly rent bills for all tenants with units (Manager and Staff only)
-// Bills are rent only; no manual create. Call this once per month or on demand.
+// Generate monthly rent bills
 router.post('/generate-monthly', authenticate, authorize('manager', 'staff'), async (req, res) => {
   try {
     const now = new Date();
@@ -107,14 +106,20 @@ router.post('/generate-monthly', authenticate, authorize('manager', 'staff'), as
 
     let created = 0;
     for (const row of tenantsWithUnits.rows) {
+      // Check for existing bill this month (PostgreSQL format)
       const existing = await pool.query(
-        'SELECT id FROM bills WHERE tenant_id = ? AND MONTH(due_date) = ? AND YEAR(due_date) = ? AND type = ?',
+        `SELECT id FROM bills 
+         WHERE tenant_id = $1 
+         AND EXTRACT(MONTH FROM due_date) = $2 
+         AND EXTRACT(YEAR FROM due_date) = $3 
+         AND type = $4`,
         [row.tenant_id, month, year, 'Rent']
       );
+
       if (existing.rows.length === 0) {
         await pool.query(
           `INSERT INTO bills (tenant_id, type, amount, description, due_date, status)
-           VALUES (?, 'Rent', ?, ?, ?, 'unpaid')`,
+           VALUES ($1, 'Rent', $2, $3, $4, 'unpaid')`,
           [row.tenant_id, row.rent_amount, `Monthly rent - ${row.building} ${row.unit_number}`, dueDate]
         );
         created++;
@@ -127,7 +132,7 @@ router.post('/generate-monthly', authenticate, authorize('manager', 'staff'), as
   }
 });
 
-// Update bill (Manager and Staff only)
+// Update bill
 router.put('/:id', authenticate, authorize('manager', 'staff'), async (req, res) => {
   try {
     const { id } = req.params;
@@ -135,11 +140,12 @@ router.put('/:id', authenticate, authorize('manager', 'staff'), async (req, res)
 
     await pool.query(
       `UPDATE bills 
-       SET type = ?, amount = ?, description = ?, due_date = ?, status = ?
-       WHERE id = ?`,
+       SET type = $1, amount = $2, description = $3, due_date = $4, status = $5
+       WHERE id = $6`,
       [type, amount, description, due_date, status, id]
     );
-    const result = await pool.query('SELECT * FROM bills WHERE id = ?', [id]);
+    
+    const result = await pool.query('SELECT * FROM bills WHERE id = $1', [id]);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Bill not found' });
@@ -152,14 +158,13 @@ router.put('/:id', authenticate, authorize('manager', 'staff'), async (req, res)
   }
 });
 
-// Delete bill (Manager only)
+// Delete bill
 router.delete('/:id', authenticate, authorize('manager'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if bill has payments
     const paymentCheck = await pool.query(
-      'SELECT id FROM payments WHERE bill_id = ?',
+      'SELECT id FROM payments WHERE bill_id = $1',
       [id]
     );
 
@@ -167,9 +172,9 @@ router.delete('/:id', authenticate, authorize('manager'), async (req, res) => {
       return res.status(400).json({ message: 'Cannot delete bill with existing payments' });
     }
 
-    const result = await pool.query('DELETE FROM bills WHERE id = ?', [id]);
+    const result = await pool.query('DELETE FROM bills WHERE id = $1 RETURNING *', [id]);
 
-    if (result.rows[0].affectedRows === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Bill not found' });
     }
 
@@ -180,4 +185,4 @@ router.delete('/:id', authenticate, authorize('manager'), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

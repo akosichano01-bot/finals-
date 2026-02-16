@@ -1,10 +1,13 @@
-// vite.config.js
+import { defineConfig } from 'vite' // DAPAT NASA PINAKATAAS ITO
+import react from '@vitejs/plugin-react'
+
 export default defineConfig({
   plugins: [react()],
   server: {
+    port: 5173,
     proxy: {
       '/api': {
-        target: 'https://finals-tenant-system.onrender.com', // Siguraduhin na tama ito
+        target: 'https://finals-tenant-system.onrender.com',
         changeOrigin: true,
       }
     }

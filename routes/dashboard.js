@@ -1,6 +1,6 @@
-const express = require('express');
-const { authenticate } = require('../middleware/auth');
-const { pool } = require('../config/database');
+import express from 'express';
+import { authenticate } from '../middleware/auth.js'; // Dagdagan ng .js
+import { poolExport as pool } from '../config/database.js'; // Gamitin ang poolExport
 
 const router = express.Router();
 
@@ -73,25 +73,25 @@ router.get('/', authenticate, async (req, res) => {
       dashboardData.recentPayments = recentPayments.rows;
 
     } else if (userRole === 'tenant') {
-      // Tenant Dashboard
+      // Tenant Dashboard - Pinalitan ang ? ng $1
       const [
         unpaidBills,
         totalPayments,
         pendingMaintenance
       ] = await Promise.all([
         pool.query(
-          "SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM bills WHERE tenant_id = ? AND status = 'unpaid'",
+          "SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM bills WHERE tenant_id = $1 AND status = 'unpaid'",
           [req.user.id]
         ),
         pool.query(
           `SELECT COUNT(*) as count, COALESCE(SUM(p.amount), 0) as total 
            FROM payments p
            JOIN bills b ON p.bill_id = b.id
-           WHERE b.tenant_id = ? AND p.status = 'completed'`,
+           WHERE b.tenant_id = $1 AND p.status = 'completed'`,
           [req.user.id]
         ),
         pool.query(
-          "SELECT COUNT(*) as count FROM maintenance_requests WHERE tenant_id = ? AND status = 'pending'",
+          "SELECT COUNT(*) as count FROM maintenance_requests WHERE tenant_id = $1 AND status = 'pending'",
           [req.user.id]
         )
       ]);
@@ -100,7 +100,7 @@ router.get('/', authenticate, async (req, res) => {
       const unitInfo = await pool.query(
         `SELECT un.* FROM units un
          JOIN users u ON un.id = u.unit_id
-         WHERE u.id = ?`,
+         WHERE u.id = $1`,
         [req.user.id]
       );
 
@@ -125,7 +125,7 @@ router.get('/', authenticate, async (req, res) => {
          FROM bills b
          LEFT JOIN users u ON b.tenant_id = u.id
          LEFT JOIN units un ON u.unit_id = un.id
-         WHERE b.tenant_id = ?
+         WHERE b.tenant_id = $1
          ORDER BY b.created_at DESC
          LIMIT 10`,
         [req.user.id]
@@ -139,7 +139,7 @@ router.get('/', authenticate, async (req, res) => {
          JOIN bills b ON p.bill_id = b.id
          LEFT JOIN users u ON b.tenant_id = u.id
          LEFT JOIN units un ON u.unit_id = un.id
-         WHERE b.tenant_id = ?
+         WHERE b.tenant_id = $1
          ORDER BY p.created_at DESC
          LIMIT 10`,
         [req.user.id]
@@ -154,4 +154,4 @@ router.get('/', authenticate, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

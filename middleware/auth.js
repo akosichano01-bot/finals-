@@ -1,9 +1,11 @@
-const jwt = require('jsonwebtoken');
-const { pool } = require('../config/database');
+import jwt from 'jsonwebtoken';
+import { poolExport as pool } from '../config/database.js';
 
-const authenticate = async (req, res, next) => {
+// Middleware to verify JWT token and attach user to request
+export const authenticate = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.split(' ')[1];
+    const authHeader = req.headers.authorization;
+    const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
       return res.status(401).json({ message: 'Authentication required' });
@@ -11,35 +13,38 @@ const authenticate = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Get user from database
+    // PostgreSQL: Ginagamit ang $1 placeholder
     const result = await pool.query(
-      'SELECT id, email, role, name FROM users WHERE id = ?',
+      'SELECT id, email, name, role, unit_id FROM users WHERE id = $1',
       [decoded.userId]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ message: 'User not found' });
+      return res.status(401).json({ message: 'User no longer exists' });
     }
 
+    // I-attach ang user data sa request object
     req.user = result.rows[0];
     next();
   } catch (error) {
-    return res.status(401).json({ message: 'Invalid token' });
+    console.error('Auth middleware error:', error.message);
+    res.status(401).json({ message: 'Invalid or expired token' });
   }
 };
 
-const authorize = (...roles) => {
+// Middleware to restrict access by role
+export const authorize = (...roles) => {
   return (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({ message: 'Authentication required' });
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: 'Insufficient permissions' });
+      return res.status(403).json({ 
+        message: `Role '${req.user.role}' is not authorized to access this resource` 
+      });
     }
 
     next();
   };
 };
-
-module.exports = { authenticate, authorize };

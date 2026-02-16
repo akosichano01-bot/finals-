@@ -1,6 +1,6 @@
-const express = require('express');
-const { authenticate, authorize } = require('../middleware/auth');
-const { pool } = require('../config/database');
+import express from 'express';
+import { authenticate, authorize } from '../middleware/auth.js';
+import { poolExport as pool } from '../config/database.js';
 
 const router = express.Router();
 
@@ -22,17 +22,17 @@ router.get('/', authenticate, async (req, res) => {
 
     // Tenants can only see their own requests
     if (req.user.role === 'tenant') {
-      query += ' AND m.tenant_id = ?';
+      query += ` AND m.tenant_id = $${paramCount++}`;
       params.push(req.user.id);
     }
 
     if (status) {
-      query += ' AND m.status = ?';
+      query += ` AND m.status = $${paramCount++}`;
       params.push(status);
     }
 
     if (priority) {
-      query += ' AND m.priority = ?';
+      query += ` AND m.priority = $${paramCount++}`;
       params.push(priority);
     }
 
@@ -58,7 +58,7 @@ router.get('/:id', authenticate, async (req, res) => {
        FROM maintenance_requests m
        JOIN users u ON m.tenant_id = u.id
        LEFT JOIN units un ON u.unit_id = un.id
-       WHERE m.id = ?`,
+       WHERE m.id = $1`,
       [id]
     );
 
@@ -83,13 +83,12 @@ router.get('/:id', authenticate, async (req, res) => {
 // Create maintenance request
 router.post('/', authenticate, async (req, res) => {
   try {
-    const { title, description, priority, unit_id } = req.body;
+    const { title, description, priority } = req.body;
 
     if (!title || !description) {
       return res.status(400).json({ message: 'Title and description are required' });
     }
 
-    // Tenants can only create requests for their own unit
     const tenantId = req.user.role === 'tenant' ? req.user.id : req.body.tenant_id;
     
     if (!tenantId) {
@@ -98,9 +97,10 @@ router.post('/', authenticate, async (req, res) => {
 
     await pool.query(
       `INSERT INTO maintenance_requests (tenant_id, title, description, priority, status)
-       VALUES (?, ?, ?, ?, 'pending')`,
+       VALUES ($1, $2, $3, $4, 'pending')`,
       [tenantId, title, description, priority || 'medium']
     );
+
     const result = await pool.query(
       'SELECT * FROM maintenance_requests ORDER BY id DESC LIMIT 1'
     );
@@ -117,34 +117,30 @@ router.put('/:id', authenticate, async (req, res) => {
     const { id } = req.params;
     const { title, description, priority, status, staff_notes } = req.body;
 
-    // Get current request
-    const currentRequest = await pool.query('SELECT * FROM maintenance_requests WHERE id = ?', [id]);
+    const currentRequest = await pool.query('SELECT * FROM maintenance_requests WHERE id = $1', [id]);
     if (currentRequest.rows.length === 0) {
       return res.status(404).json({ message: 'Maintenance request not found' });
     }
 
-    // Tenants can only update their own requests (and only certain fields)
     if (req.user.role === 'tenant') {
       if (currentRequest.rows[0].tenant_id !== req.user.id) {
         return res.status(403).json({ message: 'Insufficient permissions' });
       }
-      // Tenants can only update title and description
       await pool.query(
-        'UPDATE maintenance_requests SET title = ?, description = ? WHERE id = ?',
+        'UPDATE maintenance_requests SET title = $1, description = $2 WHERE id = $3',
         [title, description, id]
       );
-      const result = await pool.query('SELECT * FROM maintenance_requests WHERE id = ?', [id]);
-      return res.json({ message: 'Maintenance request updated successfully', request: result.rows[0] });
+    } else {
+      // Staff and Manager update
+      await pool.query(
+        `UPDATE maintenance_requests 
+         SET title = $1, description = $2, priority = $3, status = $4, staff_notes = $5
+         WHERE id = $6`,
+        [title, description, priority, status, staff_notes, id]
+      );
     }
 
-    // Staff and Manager can update all fields
-    await pool.query(
-      `UPDATE maintenance_requests 
-       SET title = ?, description = ?, priority = ?, status = ?, staff_notes = ?
-       WHERE id = ?`,
-      [title, description, priority, status, staff_notes, id]
-    );
-    const result = await pool.query('SELECT * FROM maintenance_requests WHERE id = ?', [id]);
+    const result = await pool.query('SELECT * FROM maintenance_requests WHERE id = $1', [id]);
     res.json({ message: 'Maintenance request updated successfully', request: result.rows[0] });
   } catch (error) {
     console.error('Update maintenance request error:', error);
@@ -152,14 +148,14 @@ router.put('/:id', authenticate, async (req, res) => {
   }
 });
 
-// Delete maintenance request (Manager only)
+// Delete maintenance request
 router.delete('/:id', authenticate, authorize('manager'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    const result = await pool.query('DELETE FROM maintenance_requests WHERE id = ?', [id]);
+    const result = await pool.query('DELETE FROM maintenance_requests WHERE id = $1 RETURNING *', [id]);
 
-    if (result.rows[0].affectedRows === 0) {
+    if (result.rows.length === 0) {
       return res.status(404).json({ message: 'Maintenance request not found' });
     }
 
@@ -170,4 +166,4 @@ router.delete('/:id', authenticate, authorize('manager'), async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

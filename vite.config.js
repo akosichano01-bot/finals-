@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite' // DAPAT NASA PINAKATAAS ITO
+import { defineConfig } from 'vite' // Siguraduhin na may 'import' sa Line 1
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({

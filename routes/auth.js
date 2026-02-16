@@ -1,8 +1,9 @@
-const express = require('express');
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const { body, validationResult } = require('express-validator');
-const { pool } = require('../config/database');
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { body, validationResult } from 'express-validator';
+// IMPORTANTE: Gumamit ng .js extension at i-import ang poolExport
+import { poolExport as pool } from '../config/database.js';
 
 const router = express.Router();
 
@@ -22,8 +23,9 @@ router.post('/register', [
     const { email, password, name, role, phone, unit_id } = req.body;
 
     // Check if user exists
+    // PAUNAWA: Kung PostgreSQL ang gamit mo, siguraduhing tama ang query format ($1 imbes na ?)
     const existingUser = await pool.query(
-      'SELECT id FROM users WHERE email = ?',
+      'SELECT id FROM users WHERE email = $1',
       [email]
     );
 
@@ -37,11 +39,12 @@ router.post('/register', [
     // Insert user
     await pool.query(
       `INSERT INTO users (email, password, name, role, phone, unit_id)
-       VALUES (?, ?, ?, ?, ?, ?)`,
+       VALUES ($1, $2, $3, $4, $5, $6)`,
       [email, hashedPassword, name, role, phone || null, unit_id || null]
     );
+    
     const result = await pool.query(
-      'SELECT id, email, name, role, phone, unit_id, created_at FROM users WHERE email = ?',
+      'SELECT id, email, name, role, phone, unit_id, created_at FROM users WHERE email = $1',
       [email]
     );
 
@@ -77,7 +80,7 @@ router.post('/login', [
 
     // Get user
     const result = await pool.query(
-      'SELECT id, email, password, name, role, phone, unit_id FROM users WHERE email = ?',
+      'SELECT id, email, password, name, role, phone, unit_id FROM users WHERE email = $1',
       [email]
     );
 
@@ -134,7 +137,7 @@ router.get('/me', async (req, res) => {
               un.unit_number, un.floor, un.building
        FROM users u
        LEFT JOIN units un ON u.unit_id = un.id
-       WHERE u.id = ?`,
+       WHERE u.id = $1`,
       [decoded.userId]
     );
 
@@ -148,4 +151,5 @@ router.get('/me', async (req, res) => {
   }
 });
 
-module.exports = router;
+// ITO ANG FIX PARA SA EXPORT ERROR:
+export default router;

@@ -1,12 +1,13 @@
-const express = require('express');
-const bcrypt = require('bcryptjs');
-const { authenticate, authorize } = require('../middleware/auth');
-const { pool } = require('../config/database');
+import express from 'express';
+import bcrypt from 'bcryptjs';
+import { authenticate, authorize } from '../middleware/auth.js';
+import { poolExport as pool } from '../config/database.js';
 
 const router = express.Router();
 
 // Get next tenant email (tenant@ancheta.com, tenant2@ancheta.com, ...)
 async function getNextTenantEmail() {
+  // PostgreSQL: Likas na case-sensitive ang LIKE, gamitin ang $1 para sa pattern kung kailangan
   const result = await pool.query(
     "SELECT email FROM users WHERE role = 'tenant' AND email LIKE 'tenant%@ancheta.com' ORDER BY email DESC LIMIT 1"
   );
@@ -30,14 +31,17 @@ router.post('/', authenticate, authorize('manager', 'staff'), async (req, res) =
     const defaultPassword = 'password123';
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
 
+    // PostgreSQL: Gamit ang $1, $2, $3...
     await pool.query(
-      `INSERT INTO users (email, password, name, role, phone) VALUES (?, ?, ?, 'tenant', ?)`,
+      `INSERT INTO users (email, password, name, role, phone) VALUES ($1, $2, $3, 'tenant', $4)`,
       [email, hashedPassword, name, phone || null]
     );
+    
     const result = await pool.query(
-      'SELECT id, email, name, role, phone, unit_id, created_at FROM users WHERE email = ?',
+      'SELECT id, email, name, role, phone, unit_id, created_at FROM users WHERE email = $1',
       [email]
     );
+    
     res.status(201).json({
       message: 'Tenant created successfully',
       tenant: result.rows[0],
@@ -79,15 +83,15 @@ router.post('/:id/assign-unit', authenticate, authorize('manager', 'staff'), asy
     const { id } = req.params;
     const { unit_id } = req.body;
 
-    // Check if unit exists and is available
-    const unitResult = await pool.query('SELECT id, status FROM units WHERE id = ?', [unit_id]);
+    // Check if unit exists
+    const unitResult = await pool.query('SELECT id, status FROM units WHERE id = $1', [unit_id]);
     if (unitResult.rows.length === 0) {
       return res.status(404).json({ message: 'Unit not found' });
     }
 
     // Check if unit is already occupied
     const occupiedCheck = await pool.query(
-      'SELECT id FROM users WHERE unit_id = ? AND role = ?',
+      'SELECT id FROM users WHERE unit_id = $1 AND role = $2',
       [unit_id, 'tenant']
     );
     if (occupiedCheck.rows.length > 0) {
@@ -96,11 +100,12 @@ router.post('/:id/assign-unit', authenticate, authorize('manager', 'staff'), asy
 
     // Update tenant's unit
     await pool.query(
-      'UPDATE users SET unit_id = ? WHERE id = ? AND role = ?',
+      'UPDATE users SET unit_id = $1 WHERE id = $2 AND role = $3',
       [unit_id, id, 'tenant']
     );
+
     const result = await pool.query(
-      'SELECT u.*, un.unit_number, un.building FROM users u LEFT JOIN units un ON u.unit_id = un.id WHERE u.id = ?',
+      'SELECT u.*, un.unit_number, un.building FROM users u LEFT JOIN units un ON u.unit_id = un.id WHERE u.id = $1',
       [id]
     );
 
@@ -109,7 +114,7 @@ router.post('/:id/assign-unit', authenticate, authorize('manager', 'staff'), asy
     }
 
     // Update unit status to occupied
-    await pool.query('UPDATE units SET status = ? WHERE id = ?', ['occupied', unit_id]);
+    await pool.query("UPDATE units SET status = 'occupied' WHERE id = $1", [unit_id]);
 
     res.json({ message: 'Tenant assigned to unit successfully', tenant: result.rows[0] });
   } catch (error) {
@@ -124,7 +129,7 @@ router.post('/:id/remove-unit', authenticate, authorize('manager', 'staff'), asy
     const { id } = req.params;
 
     const tenantResult = await pool.query(
-      'SELECT unit_id FROM users WHERE id = ? AND role = ?',
+      'SELECT unit_id FROM users WHERE id = $1 AND role = $2',
       [id, 'tenant']
     );
 
@@ -134,12 +139,12 @@ router.post('/:id/remove-unit', authenticate, authorize('manager', 'staff'), asy
 
     const unit_id = tenantResult.rows[0].unit_id;
 
-    // Update tenant's unit
-    await pool.query('UPDATE users SET unit_id = NULL WHERE id = ?', [id]);
+    // Update tenant's unit to NULL
+    await pool.query('UPDATE users SET unit_id = NULL WHERE id = $1', [id]);
 
-    // Update unit status
+    // Update unit status back to available
     if (unit_id) {
-      await pool.query('UPDATE units SET status = ? WHERE id = ?', ['available', unit_id]);
+      await pool.query("UPDATE units SET status = 'available' WHERE id = $1", [unit_id]);
     }
 
     res.json({ message: 'Tenant removed from unit successfully' });
@@ -149,4 +154,4 @@ router.post('/:id/remove-unit', authenticate, authorize('manager', 'staff'), asy
   }
 });
 
-module.exports = router;
+export default router;

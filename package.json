@@ -9,7 +9,11 @@
     "migrate": "node scripts/migrate.js",
     "seed": "node scripts/seed.js"
   },
-  "keywords": ["apartment", "management", "billing"],
+  "keywords": [
+    "apartment",
+    "management",
+    "billing"
+  ],
   "author": "",
   "license": "MIT",
   "dependencies": {

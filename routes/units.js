@@ -85,4 +85,62 @@ router.post('/', authenticate, authorize('manager'), async (req, res) => {
     );
     res.status(201).json({ message: 'Unit created successfully', unit: result.rows[0] });
   } catch (error) {
-    console.
+    console.error('Create unit error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update unit (Manager only)
+router.put('/:id', authenticate, authorize('manager'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { unit_number, floor, building, type, rent_amount, maintenance_status } = req.body;
+
+    await pool.query(
+      `UPDATE units 
+       SET unit_number = $1, floor = $2, building = $3, type = $4, rent_amount = $5, maintenance_status = $6
+       WHERE id = $7`,
+      [unit_number, floor, building, type, rent_amount, maintenance_status || 'none', id]
+    );
+
+    const result = await pool.query('SELECT * FROM units WHERE id = $1', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Unit not found' });
+    }
+
+    res.json({ message: 'Unit updated successfully', unit: result.rows[0] });
+  } catch (error) {
+    console.error('Update unit error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Delete unit (Manager only)
+router.delete('/:id', authenticate, authorize('manager'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const tenantCheck = await pool.query(
+      'SELECT id FROM users WHERE unit_id = $1',
+      [id]
+    );
+
+    if (tenantCheck.rows.length > 0) {
+      return res.status(400).json({ message: 'Cannot delete unit with assigned tenants' });
+    }
+
+    const result = await pool.query('DELETE FROM units WHERE id = $1 RETURNING *', [id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Unit not found' });
+    }
+
+    res.json({ message: 'Unit deleted successfully' });
+  } catch (error) {
+    console.error('Delete unit error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+export default router;

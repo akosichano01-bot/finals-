@@ -1,17 +1,17 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 
-// BINAGO: Tinanggal ang /src/ dahil nasa root na ang mga folders na ito
-import { AuthProvider, useAuth } from './contexts/AuthContext'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Units from './pages/Units'
-import Tenants from './pages/Tenants'
-import Bills from './pages/Bills'
-import Payments from './pages/Payments'
-import Maintenance from './pages/Maintenance'
-import Users from './pages/Users'
-import Layout from './components/Layout'
+// GINAMIT ANG TAMA NA PATHS: Root level folders base sa image_a46bc1.png
+import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
+import Login from './pages/Login.jsx'
+import Dashboard from './pages/Dashboard.jsx'
+import Units from './pages/Units.jsx'
+import Tenants from './pages/Tenants.jsx'
+import Bills from './pages/Bills.jsx'
+import Payments from './pages/Payments.jsx'
+import Maintenance from './pages/Maintenance.jsx'
+import Users from './pages/Users.jsx'
+import Layout from './components/Layout.jsx'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -48,6 +48,7 @@ function AppRoutes() {
         <Route path="bills" element={<Bills />} />
         <Route path="payments" element={<Payments />} />
         <Route path="maintenance" element={<Maintenance />} />
+        {/* Role-based access control */}
         {(user?.role === 'manager' || user?.role === 'staff') && (
           <Route path="users" element={<Users />} />
         )}

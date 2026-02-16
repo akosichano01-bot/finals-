@@ -1,17 +1,17 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 
-// BINAGO: Tinanggal ang lahat ng folder paths dahil nasa root na silang lahat base sa image_9a63b9.png
-import { AuthProvider, useAuth } from './AuthContext'
-import Login from './Login'
-import Dashboard from './Dashboard'
-import Units from './Units'
-import Tenants from './Tenants'
-import Bills from './Bills'
-import Payments from './Payments'
-import Maintenance from './Maintenance'
-import Users from './Users'
-import Layout from './Layout'
+// BINAGO: Tinanggal ang /src/ dahil nasa root na ang mga folders na ito
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import Units from './pages/Units'
+import Tenants from './pages/Tenants'
+import Bills from './pages/Bills'
+import Payments from './pages/Payments'
+import Maintenance from './pages/Maintenance'
+import Users from './pages/Users'
+import Layout from './components/Layout'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()

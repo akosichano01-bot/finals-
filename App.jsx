@@ -1,15 +1,16 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
-import { AuthProvider, useAuth } from './contexts/AuthContext'
-import Login from './pages/Login'
-import Dashboard from './pages/Dashboard'
-import Units from './pages/Units'
-import Tenants from './pages/Tenants'
-import Bills from './pages/Bills'
-import Payments from './pages/Payments'
-import Maintenance from './pages/Maintenance'
-import Users from './pages/Users'
-import Layout from './components/Layout'
+// BINAGO: Idinagdag ang ./src/ sa lahat ng imports sa ibaba
+import { AuthProvider, useAuth } from './src/contexts/AuthContext'
+import Login from './src/pages/Login'
+import Dashboard from './src/pages/Dashboard'
+import Units from './src/pages/Units'
+import Tenants from './src/pages/Tenants'
+import Bills from './src/pages/Bills'
+import Payments from './src/pages/Payments'
+import Maintenance from './src/pages/Maintenance'
+import Users from './src/pages/Users'
+import Layout from './src/components/Layout'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()

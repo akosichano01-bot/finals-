@@ -1,15 +1,30 @@
-const path = require('path');
-const express = require('express');
-const cors = require('cors');
-const dotenv = require('dotenv');
+import path from 'path';
+import { fileURLToPath } from 'url';
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+
+// Import Routes (Siguraduhing may .js extension sa dulo para sa ES Modules)
+import authRoutes from './routes/auth.js';
+import userRoutes from './routes/users.js';
+import unitRoutes from './routes/units.js';
+import tenantRoutes from './routes/tenants.js';
+import billRoutes from './routes/bills.js';
+import paymentRoutes from './routes/payments.js';
+import maintenanceRoutes from './routes/maintenance.js';
+import dashboardRoutes from './routes/dashboard.js';
+
+import { pool } from './config/database.js';
 
 // Load .env
 dotenv.config(); 
 
-const { pool } = require('./config/database');
-
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Kinakailangan ito para makuha ang __dirname sa ES Modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // --- CORS CONFIGURATION ---
 app.use(cors({
@@ -25,28 +40,28 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- DITO ANG PAGBABAGO PARA SA STATIC FILES ---
-// Ituturo natin sa 'dist' folder dahil ito ang default output ng Vite build
+// --- STATIC FILES ---
+// Nakaturo na ito sa 'dist' folder sa root base sa image_a46bc1.png
 app.use(express.static(path.join(__dirname, 'dist'))); 
 app.use(express.static(path.join(__dirname, 'public')));
 
 // API Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/users', require('./routes/users'));
-app.use('/api/units', require('./routes/units'));
-app.use('/api/tenants', require('./routes/tenants'));
-app.use('/api/bills', require('./routes/bills'));
-app.use('/api/payments', require('./routes/payments'));
-app.use('/api/maintenance', require('./routes/maintenance'));
-app.use('/api/dashboard', require('./routes/dashboard'));
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/units', unitRoutes);
+app.use('/api/tenants', tenantRoutes);
+app.use('/api/bills', billRoutes);
+app.use('/api/payments', paymentRoutes);
+app.use('/api/maintenance', maintenanceRoutes);
+app.use('/api/dashboard', dashboardRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Ancheta Apartment API is running' });
 });
 
-// --- DITO ANG FIX PARA SA "NO SUCH FILE index.html" ---
-// Sasabihin natin sa server na hanapin ang index.html sa loob ng 'dist' folder
+// --- FIX PARA SA "NO SUCH FILE index.html" ---
+// Pinupuwersa ang lahat ng non-API requests sa index.html sa root dist folder
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
@@ -75,4 +90,4 @@ app.listen(PORT, async () => {
   }
 });
 
-module.exports = app;
+export default app;

@@ -63,7 +63,7 @@ app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   
   try {
-  await pool.query('SELECT 1');
+  await pool.query('SELECT 1'); // Inalis natin ang [result]
   console.log('✅ Database connected');
 } catch (error) {
   console.error('❌ Database connection error:', error.message);
@@ -75,4 +75,5 @@ app.listen(PORT, async () => {
 });
 
 module.exports = app;
+
 

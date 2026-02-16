@@ -1,10 +1,20 @@
-import axios from 'axios'
+import axios from 'axios';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3000/api',
+  // Palitan mo ito ng totoong URL ng iyong Backend sa Render
+  baseURL: 'https://finals-tenant-system.onrender.com/api',
   headers: {
-    'Content-Type': 'application/json',
-  },
-})
+    'Content-Type': 'application/json'
+  }
+});
 
-export default api
+// Interceptor para sa Token
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export default api;

@@ -24,17 +24,30 @@ const PORT = process.env.PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// --- CORS ---
+// --- CORS FIX ---
+// Nilagyan natin ng mas malawak na scope para sa Render deployment
 app.use(cors({
-  origin: ['https://finals-tenant-system.onrender.com', 'http://localhost:5173'],
-  credentials: true
+  origin: [
+    'https://finals-tenant-system.onrender.com', 
+    'http://localhost:5173',
+    /\.onrender\.com$/ // Payagan ang lahat ng subdomains ng onrender
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// --- DEBUGGING MIDDLEWARE ---
+// Ito ang magpapakita sa Render logs kung may pumapasok na login request
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
 // --- STATIC FILES FIX ---
-// Siguraduhin na ang 'dist' folder ay binabasa bilang static root
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // API Routes
@@ -53,17 +66,20 @@ app.get('/api/health', (req, res) => {
 });
 
 // --- SPA FALLBACK FIX ---
-// Importante ito para sa React Router: lahat ng hindi API request ay ituturo sa index.html
+// Lahat ng hindi nagsisimula sa /api ay ituturo sa frontend
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  }
 });
 
 // Start server
 app.listen(PORT, async () => {
   console.log(`🚀 Server running on port ${PORT}`);
   try {
-    await pool.query('SELECT 1');
-    console.log('✅ Database connected');
+    // Sinisigurado nating connected ang pool bago mag-serve
+    const result = await pool.query('SELECT NOW()');
+    console.log('✅ Database connected at:', result.rows[0].now);
   } catch (error) {
     console.error('❌ Database connection error:', error.message);
   }

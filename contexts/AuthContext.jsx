@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (token) {
+      // Siguraduhing naka-set ang header bago mag-fetch
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`
       fetchUser()
     } else {
@@ -20,28 +21,40 @@ export function AuthProvider({ children }) {
   const fetchUser = async () => {
     try {
       const response = await api.get('/auth/me')
-      setUser(response.data.user)
+      // Siguraduhing tama ang nesting ng data (response.data.user o response.data)
+      setUser(response.data.user || response.data)
     } catch (error) {
-      localStorage.removeItem('token')
-      delete api.defaults.headers.common['Authorization']
+      console.error("Fetch user error:", error)
+      logout() // I-clear ang session kung expired na ang token
     } finally {
       setLoading(false)
     }
   }
 
   const login = async (email, password) => {
-    const response = await api.post('/auth/login', { email, password })
-    const { token, user } = response.data
-    localStorage.setItem('token', token)
-    api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-    setUser(user)
-    return user
+    try {
+      // Nagpadala tayo ng credentials sa backend
+      const response = await api.post('/auth/login', { email, password })
+      const { token, user } = response.data
+
+      // I-save ang session
+      localStorage.setItem('token', token)
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      setUser(user)
+      
+      return user
+    } catch (error) {
+      // Kinukuha ang error message mula sa backend para sa toast
+      const message = error.response?.data?.message || 'Login failed. Please check your credentials.'
+      throw new Error(message)
+    }
   }
 
   const logout = () => {
     localStorage.removeItem('token')
     delete api.defaults.headers.common['Authorization']
     setUser(null)
+    setLoading(false)
   }
 
   return (
@@ -52,5 +65,9 @@ export function AuthProvider({ children }) {
 }
 
 export function useAuth() {
-  return useContext(AuthContext)
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
+  }
+  return context
 }

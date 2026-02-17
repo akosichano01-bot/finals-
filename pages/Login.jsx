@@ -12,18 +12,28 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await login(email, password);
+      // 1. Isagawa ang login process
+      const result = await login(email, password);
+      
+      // 2. DEBUGGING: I-check natin kung ano ang laman ng user object
+      // Kung undefined ang role mo, dito natin makikita kung bakit.
+      console.log("Login Successful! Server Response:", result);
+      
+      // I-verify kung ang 'user' key sa localStorage ay may laman na
+      const savedUser = localStorage.getItem('user');
+      console.log("Saved in LocalStorage:", savedUser);
+
       toast.success('Welcome back!');
       navigate('/dashboard');
     } catch (error) {
+      console.error("Detailed Login Error:", error);
       // Ito ang magtri-trigger ng red notification sa taas
-      toast.error('Login failed'); 
+      toast.error(error.response?.data?.message || 'Login failed'); 
     }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#0f172a]">
-      {/* White Card Container */}
       <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 transform transition-all">
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
@@ -39,7 +49,7 @@ const Login = () => {
             </label>
             <input
               type="email"
-              className="input-field"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-slate-600"
               placeholder="manager@ancheta.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -53,7 +63,7 @@ const Login = () => {
             </label>
             <input
               type="password"
-              className="input-field"
+              className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none text-slate-600"
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -61,7 +71,10 @@ const Login = () => {
             />
           </div>
 
-          <button type="submit" className="btn-primary mt-4">
+          <button 
+            type="submit" 
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-lg shadow-blue-200"
+          >
             Sign in
           </button>
         </form>

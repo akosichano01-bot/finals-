@@ -16,7 +16,7 @@ router.get('/', authenticate, async (req, res) => {
   try {
     const { tenant_id, bill_id, status } = req.query;
     
-    // Inayos ang JOINs para hindi mag-fail kahit kulang ang data sa ibang tables
+    // LEFT JOIN para kahit walang bill o unit info, lalabas pa rin ang payment record
     let query = `
       SELECT p.*, 
              b.type as bill_type, b.amount as bill_amount, b.description as bill_description,
@@ -53,14 +53,12 @@ router.get('/', authenticate, async (req, res) => {
 
     const result = await pool.query(query, params);
     
-    // FIX: Nagpadala tayo ng object kung ang frontend mo ay gumagamit ng 'data.payments'
-    // Pero kung direct array ang gamit, res.json(result.rows || []) ay sapat na.
-    // Gagamitin natin ang direct array base sa error na nakita natin.
+    // Gamot sa .map() error: Siguraduhin na array ang balik
     res.json(result.rows || []); 
     
   } catch (error) {
     console.error('Get payments error:', error.message);
-    // Laging magbalik ng array para hindi mag-crash ang .map() sa frontend
+    // Kapag nag-error (hal. wala pang table), magpapadala ng empty array para hindi mag-crash ang UI
     res.json([]); 
   }
 });
@@ -74,16 +72,16 @@ router.post('/', authenticate, authorize('manager', 'staff'), async (req, res) =
       return res.status(400).json({ message: 'Missing bill_id or amount' });
     }
 
-    // Siguraduhin na ang transaction_id ay unique
     const transactionId = `MANUAL-${Date.now()}`;
 
+    // 1. Insert sa payments table
     await pool.query(
       `INSERT INTO payments (bill_id, amount, payment_method, transaction_id, status) 
        VALUES ($1, $2, 'manual', $3, 'completed')`,
       [bill_id, amount, transactionId]
     );
 
-    // I-update ang status ng bill pagkatapos magbayad
+    // 2. I-update ang status ng kaukulang bill
     await pool.query('UPDATE bills SET status = $1 WHERE id = $2', ['paid', bill_id]);
 
     res.status(201).json({ message: 'Payment recorded successfully' });
@@ -116,6 +114,7 @@ router.post('/paymongo-create', authenticate, async (req, res) => {
     const linkId = linkRes.data?.data?.id;
     const checkoutUrl = linkRes.data?.data?.attributes?.checkout_url;
 
+    // Isave ang link_id bilang transaction_id para sa tracking
     await pool.query(
       `INSERT INTO payments (bill_id, amount, payment_method, transaction_id, status, paymongo_link_id)
        VALUES ($1, $2, 'paymongo', $3, 'pending', $4)`,

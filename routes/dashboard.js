@@ -13,9 +13,17 @@ router.get('/', authenticate, async (req, res) => {
       recentPayments: []
     };
 
+    // Helper function para hindi mag-crash ang dashboard kung may kulang na table
+    const safeQuery = async (query, params = []) => {
+      try {
+        return await pool.query(query, params);
+      } catch (err) {
+        console.error(`⚠️ Database Error: ${err.message}`); // Lalabas ito sa Render Logs
+        return { rows: [{ count: 0, total: 0 }] };
+      }
+    };
+
     if (userRole === 'manager' || userRole === 'staff') {
-      // 1. Manager/Staff Dashboard Stats
-      // TANDAAN: Siguraduhin na 'maintenance' o 'maintenance_requests' ang table name mo sa DBeaver
       const [
         totalUnits,
         occupiedUnits,
@@ -25,13 +33,13 @@ router.get('/', authenticate, async (req, res) => {
         totalPayments,
         pendingMaintenance
       ] = await Promise.all([
-        pool.query('SELECT COUNT(*) as count FROM units'),
-        pool.query("SELECT COUNT(*) as count FROM units WHERE status = 'occupied'"),
-        pool.query("SELECT COUNT(*) as count FROM users WHERE role = 'tenant'"),
-        pool.query('SELECT COUNT(*) as count FROM bills'),
-        pool.query("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM bills WHERE status = 'unpaid'"),
-        pool.query("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM payments WHERE status = 'completed'"),
-        pool.query("SELECT COUNT(*) as count FROM maintenance WHERE status = 'pending'").catch(() => pool.query("SELECT COUNT(*) as count FROM maintenance_requests WHERE status = 'pending'"))
+        safeQuery('SELECT COUNT(*) as count FROM units'),
+        safeQuery("SELECT COUNT(*) as count FROM units WHERE status = 'occupied'"),
+        safeQuery("SELECT COUNT(*) as count FROM users WHERE role = 'tenant'"),
+        safeQuery('SELECT COUNT(*) as count FROM bills'),
+        safeQuery("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM bills WHERE status = 'unpaid'"),
+        safeQuery("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM payments WHERE status = 'completed'"),
+        safeQuery("SELECT COUNT(*) as count FROM maintenance WHERE status = 'pending'")
       ]);
 
       dashboardData.stats = {
@@ -51,8 +59,7 @@ router.get('/', authenticate, async (req, res) => {
         pendingMaintenance: parseInt(pendingMaintenance.rows[0]?.count) || 0
       };
 
-      // 2. Recent Bills
-      const recentBills = await pool.query(
+      const billsRes = await safeQuery(
         `SELECT b.*, u.name as tenant_name, un.unit_number
          FROM bills b
          JOIN users u ON b.tenant_id = u.id
@@ -60,14 +67,13 @@ router.get('/', authenticate, async (req, res) => {
          ORDER BY b.created_at DESC
          LIMIT 10`
       );
-      dashboardData.recentBills = recentBills.rows || [];
+      dashboardData.recentBills = billsRes.rows || [];
 
     } else if (userRole === 'tenant') {
-      // 3. Tenant Dashboard Stats
       const [unpaidBills, totalPayments, pendingMaintenance] = await Promise.all([
-        pool.query("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM bills WHERE tenant_id = $1 AND status = 'unpaid'", [req.user.id]),
-        pool.query(`SELECT COUNT(*) as count, COALESCE(SUM(p.amount), 0) as total FROM payments p JOIN bills b ON p.bill_id = b.id WHERE b.tenant_id = $1 AND p.status = 'completed'`, [req.user.id]),
-        pool.query("SELECT COUNT(*) as count FROM maintenance WHERE tenant_id = $1 AND status = 'pending'", [req.user.id]).catch(() => pool.query("SELECT COUNT(*) as count FROM maintenance_requests WHERE tenant_id = $1 AND status = 'pending'", [req.user.id]))
+        safeQuery("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM bills WHERE tenant_id = $1 AND status = 'unpaid'", [req.user.id]),
+        safeQuery(`SELECT COUNT(*) as count, COALESCE(SUM(p.amount), 0) as total FROM payments p JOIN bills b ON p.bill_id = b.id WHERE b.tenant_id = $1 AND p.status = 'completed'`, [req.user.id]),
+        safeQuery("SELECT COUNT(*) as count FROM maintenance WHERE tenant_id = $1 AND status = 'pending'", [req.user.id])
       ]);
 
       dashboardData.stats = {
@@ -82,14 +88,13 @@ router.get('/', authenticate, async (req, res) => {
         pendingMaintenance: parseInt(pendingMaintenance.rows[0]?.count) || 0
       };
 
-      const recentBills = await pool.query(`SELECT b.* FROM bills b WHERE b.tenant_id = $1 ORDER BY b.created_at DESC LIMIT 10`, [req.user.id]);
-      dashboardData.recentBills = recentBills.rows || [];
+      const billsRes = await safeQuery(`SELECT b.* FROM bills b WHERE b.tenant_id = $1 ORDER BY b.created_at DESC LIMIT 10`, [req.user.id]);
+      dashboardData.recentBills = billsRes.rows || [];
     }
 
     res.json(dashboardData);
   } catch (error) {
-    console.error('Get dashboard error:', error.message);
-    // Siguradong valid object ang babalik para hindi mag-crash ang UI
+    console.error('Final Dashboard error:', error.message);
     res.status(200).json({
       stats: { totalUnits: 0, occupiedUnits: 0, availableUnits: 0, totalTenants: 0, unpaidBills: {count:0, total:0}, totalPayments: {count:0, total:0}, pendingMaintenance: 0 },
       recentBills: [],

@@ -1,7 +1,6 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 
-// GINAMIT ANG TAMA NA PATHS: Root level folders base sa image_a46bc1.png
 import { AuthProvider, useAuth } from './contexts/AuthContext.jsx'
 import Login from './pages/Login.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -18,8 +17,12 @@ function PrivateRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl">Loading...</div>
+      /* Inayos ang loading state para sumunod sa dark theme ng image_04d14b.png */
+      <div className="min-h-screen flex items-center justify-center bg-[#0f172a]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-white font-medium animate-pulse">Loading Ancheta System...</p>
+        </div>
       </div>
     )
   }
@@ -53,6 +56,8 @@ function AppRoutes() {
           <Route path="users" element={<Users />} />
         )}
       </Route>
+      {/* Fallback para sa mga maling URL */}
+      <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   )
 }
@@ -62,7 +67,20 @@ function App() {
     <AuthProvider>
       <Router>
         <AppRoutes />
-        <Toaster position="top-right" />
+        {/* Inayos ang Toaster para magmukhang premium gaya ng login failed toast */}
+        <Toaster 
+          position="top-right"
+          toastOptions={{
+            duration: 4000,
+            style: {
+              background: '#ffffff',
+              color: '#1e293b',
+              borderRadius: '12px',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              padding: '16px',
+            },
+          }}
+        />
       </Router>
     </AuthProvider>
   )

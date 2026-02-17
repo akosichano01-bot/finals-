@@ -3,15 +3,11 @@ import axios from 'axios';
 
 const Payments = () => {
   // --- 1. USER & ROLE IDENTIFICATION ---
-  // Kinukuha ang user object mula sa storage para malaman ang role
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  
-  // Debugging: Makikita mo ito sa F12 Console para ma-verify ang role
-  console.log("Current user role:", user.role); 
-
-  const isTenant = user.role === 'tenant';
+  const isTenant = user?.role === 'tenant'; // Added optional chaining for safety
 
   // --- 2. COMPONENT STATES ---
+  // Siguraduhing default ay empty array [] para hindi mag-error ang .map()
   const [payments, setPayments] = useState([]);  
   const [unpaidBills, setUnpaidBills] = useState([]);  
   const [loading, setLoading] = useState(true);
@@ -25,25 +21,37 @@ const Payments = () => {
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
 
-      // API calls para sa history
+      // API call para sa history
       const paymentsRes = await axios.get('/api/payments', { headers });
-      setPayments(Array.isArray(paymentsRes.data) ? paymentsRes.data : []);
+      
+      // SAFETY CHECK: Siguraduhing array ang data bago i-set
+      if (paymentsRes.data && Array.isArray(paymentsRes.data)) {
+        setPayments(paymentsRes.data);
+      } else {
+        setPayments([]); 
+      }
 
-      // Tatawagin lang ang unpaid bills kung ang role ay 'tenant'
       if (isTenant) {
         const billsRes = await axios.get('/api/bills/my-unpaid', { headers });
-        setUnpaidBills(Array.isArray(billsRes.data) ? billsRes.data : []);
+        // SAFETY CHECK: Para sa unpaid bills array
+        if (billsRes.data && Array.isArray(billsRes.data)) {
+          setUnpaidBills(billsRes.data);
+        } else {
+          setUnpaidBills([]);
+        }
       }
 
       setError(null);
     } catch (err) {
       console.error("Fetch error:", err);
+      setPayments([]); // Fallback to empty array on error
+      setUnpaidBills([]);
+      
       if (err.response?.status === 401) {
         setError("Session expired. Please login again.");
       } else {
         setError("Failed to load payment data.");
       }
-      setPayments([]); 
     } finally {
       setLoading(false);
     }
@@ -75,29 +83,21 @@ const Payments = () => {
     }
   };
 
-  // --- 5. LOADING UI ---
-  if (loading && payments.length === 0) {
-    return (
-      <div className="p-10 text-center text-white bg-[#1a1c23] min-h-screen">
-        <div className="animate-spin inline-block w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full mb-4"></div>
-        <p>Loading your financial records...</p>
-      </div>
-    );
-  }
-
+  // --- 5. UI RENDERING ---
   return (
     <div className="p-6 bg-[#1a1c23] min-h-screen text-white">
-      {/* SECTION 1: UNPAID BILLS (Lilitaw lang kung Tenant) */}
+      {/* SECTION 1: UNPAID BILLS (Tenant View) */}
       {isTenant && (
         <div className="mb-10">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold text-yellow-400">Bills to Pay</h2>
             <span className="text-xs bg-yellow-500/10 text-yellow-500 px-2 py-1 rounded">
-              {unpaidBills.length} Pending
+              {unpaidBills?.length || 0} Pending
             </span>
           </div>
 
-          {unpaidBills.length > 0 ? (
+          {/* Added Check: unpaidBills?.length > 0 */}
+          {unpaidBills && unpaidBills.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {unpaidBills.map((bill) => (
                 <div key={bill.id} className="bg-[#24262d] p-5 rounded-xl border border-gray-700 hover:border-yellow-500/50 transition shadow-lg">
@@ -152,53 +152,61 @@ const Payments = () => {
         </div>
       )}
 
-      <div className="overflow-hidden bg-[#24262d] rounded-xl shadow-2xl border border-gray-800">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-wider">
-                <th className="p-4 font-semibold">Tenant</th>
-                <th className="p-4 font-semibold">Bill Type</th>
-                <th className="p-4 font-semibold">Amount</th>
-                <th className="p-4 font-semibold">Status</th>
-                <th className="p-4 font-semibold text-right">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {payments.length > 0 ? (
-                payments.map((p) => (
-                  <tr key={p.id} className="hover:bg-gray-700/20 transition-colors group">
-                    <td className="p-4">
-                      <div className="font-medium text-gray-200">{p.tenant_name || 'System User'}</div>
-                      <div className="text-[10px] text-gray-500 font-mono">{p.transaction_id}</div>
-                    </td>
-                    <td className="p-4 text-xs font-medium text-gray-400 uppercase">{p.bill_type}</td>
-                    <td className="p-4 tracking-tight">
-                      <span className="text-green-400 font-bold">₱{Number(p.amount).toLocaleString()}</span>
-                    </td>
-                    <td className="p-4">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
-                        p.status === 'completed' 
-                          ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
-                          : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
-                      }`}>
-                        {p.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-right text-gray-500 text-sm">
-                      {new Date(p.created_at).toLocaleDateString()}
-                    </td>
-                  </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="5" className="p-20 text-center text-gray-600">No payment records found.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+      {loading ? (
+        <div className="text-center py-20">
+          <div className="animate-spin inline-block w-8 h-8 border-4 border-yellow-500 border-t-transparent rounded-full mb-4"></div>
+          <p>Loading records...</p>
         </div>
-      </div>
+      ) : (
+        <div className="overflow-hidden bg-[#24262d] rounded-xl shadow-2xl border border-gray-800">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-800/50 text-gray-400 text-xs uppercase tracking-wider">
+                  <th className="p-4 font-semibold">Tenant</th>
+                  <th className="p-4 font-semibold">Bill Type</th>
+                  <th className="p-4 font-semibold">Amount</th>
+                  <th className="p-4 font-semibold">Status</th>
+                  <th className="p-4 font-semibold text-right">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-800">
+                {/* SAFE ACCESS: payments?.length */}
+                {payments && payments.length > 0 ? (
+                  payments.map((p) => (
+                    <tr key={p.id} className="hover:bg-gray-700/20 transition-colors group">
+                      <td className="p-4">
+                        <div className="font-medium text-gray-200">{p.tenant_name || 'System User'}</div>
+                        <div className="text-[10px] text-gray-500 font-mono">{p.transaction_id}</div>
+                      </td>
+                      <td className="p-4 text-xs font-medium text-gray-400 uppercase">{p.bill_type}</td>
+                      <td className="p-4 tracking-tight">
+                        <span className="text-green-400 font-bold">₱{Number(p.amount).toLocaleString()}</span>
+                      </td>
+                      <td className="p-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
+                          p.status === 'completed' 
+                            ? 'bg-green-500/10 text-green-500 border border-green-500/20' 
+                            : 'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+                        }`}>
+                          {p.status}
+                        </span>
+                      </td>
+                      <td className="p-4 text-right text-gray-500 text-sm">
+                        {new Date(p.created_at).toLocaleDateString()}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" className="p-20 text-center text-gray-600">No payment records found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

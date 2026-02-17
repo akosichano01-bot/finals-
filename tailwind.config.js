@@ -1,22 +1,26 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  // Siguraduhin na kasama ang lahat ng folders sa loob ng src
+  // Pinalawak natin ang scope para siguradong pati ang pages at components folders ay ma-scan
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}", // Lahat ng files sa subfolders
-    "./src/*.{js,ts,jsx,tsx}",   // Lahat ng files sa root ng src folder
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/pages/**/*.{js,ts,jsx,tsx}",
+    "./src/components/**/*.{js,ts,jsx,tsx}",
+    "./src/contexts/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
       colors: {
-        // Idinagdag natin ang exact colors base sa screenshot mo para madaling gamitin
         'apartment-dark': '#0f172a',
         'apartment-indigo': '#4f46e5',
       },
+      // Nagdagdag tayo ng default spacing at shadows para sa card
+      boxShadow: {
+        '2xl': '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
+      }
     },
   },
-  // Ginawa nating true para ma-override ang anumang default browser styles 
-  // na nagiging sanhi ng "plain text" look
+  // Naka-true ito para siguradong manalo ang Tailwind classes mo sa Render environment
   important: true, 
   plugins: [],
 }

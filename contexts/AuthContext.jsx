@@ -9,9 +9,20 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const token = localStorage.getItem('token')
+    const savedUser = localStorage.getItem('user') // 1. Kunin ang user mula sa storage
+
     if (token) {
-      // Siguraduhing naka-set ang header bago mag-fetch
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      
+      // I-set muna ang user mula sa localStorage para hindi mag-undefined ang role habang nag-fe-fetch
+      if (savedUser) {
+        try {
+          setUser(JSON.parse(savedUser)) //
+        } catch (e) {
+          console.error("Storage parse error:", e)
+        }
+      }
+      
       fetchUser()
     } else {
       setLoading(false)
@@ -21,11 +32,16 @@ export function AuthProvider({ children }) {
   const fetchUser = async () => {
     try {
       const response = await api.get('/auth/me')
-      // Siguraduhing tama ang nesting ng data (response.data.user o response.data)
-      setUser(response.data.user || response.data)
+      const userData = response.data.user || response.data
+      
+      setUser(userData)
+      // 2. I-update ang storage para laging fresh ang user info
+      localStorage.setItem('user', JSON.stringify(userData)) 
     } catch (error) {
       console.error("Fetch user error:", error)
-      logout() // I-clear ang session kung expired na ang token
+      if (error.response?.status === 401) {
+        logout()
+      }
     } finally {
       setLoading(false)
     }
@@ -33,25 +49,27 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
-      // Nagpadala tayo ng credentials sa backend
       const response = await api.post('/auth/login', { email, password })
-      const { token, user } = response.data
+      const { token, user: loggedUser } = response.data
 
-      // I-save ang session
+      // 3. I-save ang parehong token at user object
       localStorage.setItem('token', token)
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
-      setUser(user)
+      localStorage.setItem('user', JSON.stringify(loggedUser)) // Importante ito para sa role detection
       
-      return user
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+      setUser(loggedUser)
+      
+      return loggedUser
     } catch (error) {
-      // Kinukuha ang error message mula sa backend para sa toast
       const message = error.response?.data?.message || 'Login failed. Please check your credentials.'
       throw new Error(message)
     }
   }
 
   const logout = () => {
+    // 4. Linisin lahat ng records sa storage
     localStorage.removeItem('token')
+    localStorage.removeItem('user') 
     delete api.defaults.headers.common['Authorization']
     setUser(null)
     setLoading(false)

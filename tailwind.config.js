@@ -1,16 +1,22 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  // Siguraduhin na kasama ang lahat ng folders sa loob ng src
   content: [
     "./index.html",
-    "./src/**/*.{js,ts,jsx,tsx}",
-    "./src/*.{js,ts,jsx,tsx}",
+    "./src/**/*.{js,ts,jsx,tsx}", // Lahat ng files sa subfolders
+    "./src/*.{js,ts,jsx,tsx}",   // Lahat ng files sa root ng src folder
   ],
   theme: {
     extend: {
-      // Maaari mong dagdagan ng custom colors dito kung kailangan
+      colors: {
+        // Idinagdag natin ang exact colors base sa screenshot mo para madaling gamitin
+        'apartment-dark': '#0f172a',
+        'apartment-indigo': '#4f46e5',
+      },
     },
   },
-  // Inilipat natin ito para masiguradong walang conflict sa ibang CSS
+  // Ginawa nating true para ma-override ang anumang default browser styles 
+  // na nagiging sanhi ng "plain text" look
   important: true, 
   plugins: [],
 }

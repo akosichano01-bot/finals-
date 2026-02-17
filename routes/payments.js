@@ -16,6 +16,7 @@ router.get('/', authenticate, async (req, res) => {
   try {
     const { tenant_id, bill_id, status } = req.query;
     
+    // LEFT JOIN para kahit walang bill o unit info, lalabas pa rin ang payment record
     let query = `
       SELECT p.*, 
              b.type as bill_type, b.amount as bill_amount, b.description as bill_description,
@@ -52,13 +53,13 @@ router.get('/', authenticate, async (req, res) => {
 
     const result = await pool.query(query, params);
     
-    // Siguraduhin na array ang balik para hindi mag-crash ang .map() sa frontend
+    // Gamot sa .map() error: Siguraduhin na array ang balik
     res.json(result.rows || []); 
     
   } catch (error) {
     console.error('Get payments error:', error.message);
-    // Laging magpadala ng empty array [] imbes na error status
-    res.status(200).json([]); 
+    // Kapag nag-error (hal. wala pang table), magpapadala ng empty array para hindi mag-crash ang UI
+    res.json([]); 
   }
 });
 
@@ -66,4 +67,65 @@ router.get('/', authenticate, async (req, res) => {
 router.post('/', authenticate, authorize('manager', 'staff'), async (req, res) => {
   try {
     const { bill_id, amount } = req.body;
-    if (!bill_id || !amount) return
+    
+    if (!bill_id || !amount) {
+      return res.status(400).json({ message: 'Missing bill_id or amount' });
+    }
+
+    const transactionId = `MANUAL-${Date.now()}`;
+
+    // 1. Insert sa payments table
+    await pool.query(
+      `INSERT INTO payments (bill_id, amount, payment_method, transaction_id, status) 
+       VALUES ($1, $2, 'manual', $3, 'completed')`,
+      [bill_id, amount, transactionId]
+    );
+
+    // 2. I-update ang status ng kaukulang bill
+    await pool.query('UPDATE bills SET status = $1 WHERE id = $2', ['paid', bill_id]);
+
+    res.status(201).json({ message: 'Payment recorded successfully' });
+  } catch (error) {
+    console.error('Manual record error:', error.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// --- CREATE PAYMONGO LINK ---
+router.post('/paymongo-create', authenticate, async (req, res) => {
+  try {
+    if (req.user.role !== 'tenant') {
+      return res.status(403).json({ message: 'Only tenants can pay via PayMongo' });
+    }
+    const { bill_id } = req.body;
+    
+    const billResult = await pool.query('SELECT * FROM bills WHERE id = $1', [bill_id]);
+    if (billResult.rows.length === 0) return res.status(404).json({ message: 'Bill not found' });
+    
+    const bill = billResult.rows[0];
+    const amountCentavos = Math.round(parseFloat(bill.amount) * 100);
+
+    const linkRes = await axios.post(
+      `${PAYMONGO_API}/links`,
+      { data: { attributes: { amount: amountCentavos, currency: 'PHP', description: `Rent - ${bill.type}` } } },
+      { headers: { 'Content-Type': 'application/json', Authorization: `Basic ${getPayMongoAuth()}` } }
+    );
+
+    const linkId = linkRes.data?.data?.id;
+    const checkoutUrl = linkRes.data?.data?.attributes?.checkout_url;
+
+    // Isave ang link_id bilang transaction_id para sa tracking
+    await pool.query(
+      `INSERT INTO payments (bill_id, amount, payment_method, transaction_id, status, paymongo_link_id)
+       VALUES ($1, $2, 'paymongo', $3, 'pending', $4)`,
+      [bill_id, bill.amount, linkId, linkId]
+    );
+
+    res.status(201).json({ checkout_url: checkoutUrl });
+  } catch (error) {
+    console.error('PayMongo error:', error.message);
+    res.status(500).json({ message: 'Payment link creation failed' });
+  }
+});
+
+export default router;

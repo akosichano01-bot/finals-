@@ -16,6 +16,7 @@ router.get('/', authenticate, async (req, res) => {
   try {
     const { tenant_id, bill_id, status } = req.query;
     
+    // Inayos ang JOINs para safe kahit kulang ang data sa bills o users table
     let query = `
       SELECT p.*, 
              b.type as bill_type, b.amount as bill_amount, b.description as bill_description,
@@ -52,38 +53,53 @@ router.get('/', authenticate, async (req, res) => {
 
     const result = await pool.query(query, params);
     
-    // Siguraduhin na array ang balik para hindi mag-crash ang .map() sa frontend
+    // Gamot sa .map() error: Siguraduhin na array ang balik
     res.json(result.rows || []); 
     
   } catch (error) {
     console.error('Get payments error:', error.message);
-    // Laging magpadala ng empty array [] imbes na error status
+    // Laging magpadala ng empty array [] imbes na error status para sa frontend
     res.status(200).json([]); 
   }
 });
 
 // --- MANUAL RECORDING ---
 router.post('/', authenticate, authorize('manager', 'staff'), async (req, res) => {
+  const client = await pool.connect();
   try {
     const { bill_id, amount } = req.body;
-    if (!bill_id || !amount) return res.status(400).json({ message: 'Bill ID and Amount are required' });
+    if (!bill_id || !amount) {
+      return res.status(400).json({ message: 'Bill ID and Amount are required' });
+    }
+
+    // Safety check: Siguraduhin na exist ang bill_id para iwas Foreign Key error
+    const billCheck = await client.query('SELECT id FROM bills WHERE id = $1', [bill_id]);
+    if (billCheck.rows.length === 0) {
+      return res.status(400).json({ message: `Bill ID ${bill_id} does not exist.` });
+    }
+
+    await client.query('BEGIN');
 
     const transactionId = `MANUAL-${Date.now()}`;
 
-    // Record the payment
-    await pool.query(
+    // 1. Record the payment
+    await client.query(
       `INSERT INTO payments (bill_id, amount, payment_method, transaction_id, status) 
        VALUES ($1, $2, 'manual', $3, 'completed')`,
       [bill_id, amount, transactionId]
     );
 
-    // Mark the bill as paid
-    await pool.query('UPDATE bills SET status = $1 WHERE id = $2', ['paid', bill_id]);
+    // 2. Mark the bill as paid
+    await client.query('UPDATE bills SET status = $1 WHERE id = $2', ['paid', bill_id]);
 
+    await client.query('COMMIT');
     res.status(201).json({ message: 'Payment recorded successfully' });
   } catch (error) {
+    await client.query('ROLLBACK');
     console.error('Manual record error:', error.message);
     res.status(500).json({ message: 'Server error' });
+  } finally {
+    client.release();
   }
 });
 
@@ -91,10 +107,13 @@ router.post('/', authenticate, authorize('manager', 'staff'), async (req, res) =
 router.post('/paymongo-create', authenticate, async (req, res) => {
   try {
     const { bill_id } = req.body;
+    
     const billResult = await pool.query('SELECT * FROM bills WHERE id = $1', [bill_id]);
     if (billResult.rows.length === 0) return res.status(404).json({ message: 'Bill not found' });
     
     const bill = billResult.rows[0];
+    if (bill.status === 'paid') return res.status(400).json({ message: 'Bill is already paid' });
+
     const amountCentavos = Math.round(parseFloat(bill.amount) * 100);
 
     const linkRes = await axios.post(
@@ -114,6 +133,7 @@ router.post('/paymongo-create', authenticate, async (req, res) => {
 
     res.status(201).json({ checkout_url: checkoutUrl });
   } catch (error) {
+    console.error('PayMongo error:', error.message);
     res.status(500).json({ message: 'Payment link creation failed' });
   }
 });

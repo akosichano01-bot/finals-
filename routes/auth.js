@@ -1,158 +1,88 @@
 import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { body, validationResult } from 'express-validator';
 import { poolExport as pool } from '../config/database.js';
 
 const router = express.Router();
 
-// Helper para sa Token Generation
-const generateToken = (userId) => {
-  return jwt.sign(
-    { userId },
-    process.env.JWT_SECRET || 'your_fallback_secret',
-    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
-  );
-};
+router.post('/login', async (req, res) => {
+  const { email, password } = req.body;
+  console.log(`Processing login for: ${email}`);
 
-// --- REGISTER ---
-router.post('/register', [
-  body('email').isEmail().normalizeEmail(),
-  body('password').isLength({ min: 6 }),
-  body('name').trim().notEmpty(),
-  body('role').isIn(['manager', 'staff', 'tenant']),
-], async (req, res) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email, password, name, role, phone, unit_id } = req.body;
-
-    const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existingUser.rows.length > 0) {
-      return res.status(400).json({ message: 'User already exists' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    await pool.query(
-      `INSERT INTO users (email, password, name, role, phone, unit_id)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [email, hashedPassword, name, role, phone || null, unit_id || null]
-    );
-    
+    // 1. Query sa database
     const result = await pool.query(
-      'SELECT id, email, name, role, phone, unit_id FROM users WHERE email = $1',
-      [email]
-    );
-
-    const token = generateToken(result.rows[0].id);
-
-    res.status(201).json({
-      message: 'User registered successfully',
-      token,
-      user: result.rows[0]
-    });
-  } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// --- LOGIN (With Plain Text Fallback) ---
-router.post('/login', [
-  body('email').isEmail().normalizeEmail(),
-  body('password').notEmpty(),
-], async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
-    }
-
-    const { email, password } = req.body;
-    console.log(`Login attempt for: ${email}`); // Lalabas sa Render logs
-
-    const result = await pool.query(
-      'SELECT id, email, password, name, role, phone, unit_id FROM users WHERE email = $1',
+      'SELECT id, email, password, name, role FROM users WHERE email = $1',
       [email]
     );
 
     if (result.rows.length === 0) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      console.log("User not found in database");
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
     const user = result.rows[0];
 
-    // FALLBACK LOGIC: 
-    // 1. I-check kung hashed ang password at itugma gamit ang bcrypt.
-    // 2. Kung hindi hashed (plain text sa DBeaver), itugma nang direkta.
-    let isValidPassword = false;
+    // 2. Password Matching (Hashed or Plain Text Fallback)
+    let isMatch = false;
     try {
-      isValidPassword = await bcrypt.compare(password, user.password);
-    } catch (e) {
-      isValidPassword = false;
+      isMatch = await bcrypt.compare(password, user.password);
+    } catch (err) {
+      isMatch = false;
     }
 
-    // Kung fail ang bcrypt, i-check kung plain text match (para makapasok ka na ngayon)
-    if (!isValidPassword && password === user.password) {
-      isValidPassword = true;
+    // Kung hindi hashed ang password sa DBeaver, icheck kung plain text match
+    if (!isMatch && password === user.password) {
+      isMatch = true;
     }
 
-    if (!isValidPassword) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+    if (!isMatch) {
+      console.log("Password mismatch");
+      return res.status(401).json({ message: 'Invalid email or password' });
     }
 
-    const token = generateToken(user.id);
+    // 3. Token Generation
+    const token = jwt.sign(
+      { userId: user.id },
+      process.env.JWT_SECRET || 'secret123',
+      { expiresIn: '7d' }
+    );
 
-    res.json({
+    console.log("Login successful! Sending token.");
+    
+    // 4. Send Response (Dapat JSON ito)
+    res.status(200).json({
       message: 'Login successful',
       token,
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
-        role: user.role,
-        phone: user.phone,
-        unit_id: user.unit_id
+        role: user.role
       }
     });
+
   } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ message: 'Server error' });
+    console.error('Database/Server Error:', error.message);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
-// --- GET CURRENT USER ---
+// GET /me para sa AuthContext persistence
 router.get('/me', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
+    if (!authHeader) return res.status(401).json({ message: 'No token provided' });
 
-    if (!token) {
-      return res.status(401).json({ message: 'Authentication required' });
-    }
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret123');
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your_fallback_secret');
+    const result = await pool.query('SELECT id, email, name, role FROM users WHERE id = $1', [decoded.userId]);
     
-    const result = await pool.query(
-      `SELECT u.id, u.email, u.name, u.role, u.phone, u.unit_id, u.created_at,
-              un.unit_number, un.floor, un.building
-       FROM users u
-       LEFT JOIN units un ON u.unit_id = un.id
-       WHERE u.id = $1`,
-      [decoded.userId]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
+    if (result.rows.length === 0) return res.status(404).json({ message: 'User not found' });
 
     res.json({ user: result.rows[0] });
-  } catch (error) {
-    console.error('Me error:', error.message);
+  } catch (err) {
     res.status(401).json({ message: 'Invalid token' });
   }
 });

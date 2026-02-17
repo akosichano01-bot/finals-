@@ -2,29 +2,35 @@ import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const Payments = () => {
-  const [payments, setPayments] = useState([]); 
-  const [unpaidBills, setUnpaidBills] = useState([]); 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [processingId, setProcessingId] = useState(null); // Tracking specific bill being paid
-
-  // Get user info safely
+  // --- 1. USER & ROLE IDENTIFICATION ---
+  // Kinukuha ang user object mula sa storage para malaman ang role
   const user = JSON.parse(localStorage.getItem('user') || '{}');
+  
+  // Debugging: Makikita mo ito sa F12 Console para ma-verify ang role
+  console.log("Current user role:", user.role); 
+
   const isTenant = user.role === 'tenant';
 
-  // Function wrapped in useCallback to prevent unnecessary re-renders
+  // --- 2. COMPONENT STATES ---
+  const [payments, setPayments] = useState([]);  
+  const [unpaidBills, setUnpaidBills] = useState([]);  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [processingId, setProcessingId] = useState(null); 
+
+  // --- 3. DATA FETCHING LOGIC ---
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
       const headers = { Authorization: `Bearer ${token}` };
 
-      // API calls
+      // API calls para sa history
       const paymentsRes = await axios.get('/api/payments', { headers });
       setPayments(Array.isArray(paymentsRes.data) ? paymentsRes.data : []);
 
+      // Tatawagin lang ang unpaid bills kung ang role ay 'tenant'
       if (isTenant) {
-        // Calling the new endpoint we added to the backend
         const billsRes = await axios.get('/api/bills/my-unpaid', { headers });
         setUnpaidBills(Array.isArray(billsRes.data) ? billsRes.data : []);
       }
@@ -37,7 +43,7 @@ const Payments = () => {
       } else {
         setError("Failed to load payment data.");
       }
-      setPayments([]); // Safety fallback
+      setPayments([]); 
     } finally {
       setLoading(false);
     }
@@ -47,9 +53,10 @@ const Payments = () => {
     fetchData();
   }, [fetchData]);
 
+  // --- 4. PAYMENT HANDLER ---
   const handlePayNow = async (billId) => {
     try {
-      setProcessingId(billId); // Start loading for this specific button
+      setProcessingId(billId); 
       const token = localStorage.getItem('token');
       
       const res = await axios.post('/api/payments/paymongo-create', 
@@ -58,7 +65,6 @@ const Payments = () => {
       );
 
       if (res.data.checkout_url) {
-        // Redirect to PayMongo
         window.location.href = res.data.checkout_url; 
       }
     } catch (err) {
@@ -69,6 +75,7 @@ const Payments = () => {
     }
   };
 
+  // --- 5. LOADING UI ---
   if (loading && payments.length === 0) {
     return (
       <div className="p-10 text-center text-white bg-[#1a1c23] min-h-screen">
@@ -80,7 +87,7 @@ const Payments = () => {
 
   return (
     <div className="p-6 bg-[#1a1c23] min-h-screen text-white">
-      {/* SECTION 1: UNPAID BILLS (Tenant View) */}
+      {/* SECTION 1: UNPAID BILLS (Lilitaw lang kung Tenant) */}
       {isTenant && (
         <div className="mb-10">
           <div className="flex justify-between items-center mb-4">
@@ -129,7 +136,7 @@ const Payments = () => {
         </div>
       )}
 
-      {/* SECTION 2: PAYMENT HISTORY */}
+      {/* SECTION 2: HISTORY TABLE */}
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Payment History</h1>
         <button onClick={fetchData} className="text-sm text-gray-400 hover:text-white flex items-center gap-1">
@@ -166,8 +173,8 @@ const Payments = () => {
                       <div className="text-[10px] text-gray-500 font-mono">{p.transaction_id}</div>
                     </td>
                     <td className="p-4 text-xs font-medium text-gray-400 uppercase">{p.bill_type}</td>
-                    <td className="p-4">
-                      <span className="text-green-400 font-bold tracking-tight">₱{Number(p.amount).toLocaleString()}</span>
+                    <td className="p-4 tracking-tight">
+                      <span className="text-green-400 font-bold">₱{Number(p.amount).toLocaleString()}</span>
                     </td>
                     <td className="p-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${
@@ -179,18 +186,13 @@ const Payments = () => {
                       </span>
                     </td>
                     <td className="p-4 text-right text-gray-500 text-sm">
-                      {new Date(p.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {new Date(p.created_at).toLocaleDateString()}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="5" className="p-20 text-center">
-                    <div className="flex flex-col items-center opacity-20">
-                      <svg className="w-16 h-16 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                      <p className="text-xl font-bold">No payment records found.</p>
-                    </div>
-                  </td>
+                  <td colSpan="5" className="p-20 text-center text-gray-600">No payment records found.</td>
                 </tr>
               )}
             </tbody>

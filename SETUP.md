@@ -1,117 +1,83 @@
 # Setup Guide for Ancheta's Apartment Management System
 
-This guide uses **MySQL/MariaDB** so you can manage the database with **phpMyAdmin**.
+This guide uses **PostgreSQL** (recommended: `docker-compose.yml` included) for the database.
 
 ## Prerequisites
 
 - **Node.js** 18 or higher ([Download](https://nodejs.org/))
-- **XAMPP** (includes MySQL/MariaDB + phpMyAdmin) — [Download XAMPP](https://www.apachefriends.org/download.html)  
-  **or** any setup that gives you **MySQL** or **MariaDB** + **phpMyAdmin**
+- **PostgreSQL** 14+ (either Docker or a local install)
+- **Docker Desktop** (optional, recommended for local Postgres) — [Download](https://www.docker.com/products/docker-desktop/)
 - **npm** (comes with Node.js)
 
 ---
 
-## Step 1: Install XAMPP and Start MySQL
+## Step 1: Start PostgreSQL
 
-1. **Download and install XAMPP** from https://www.apachefriends.org/download.html  
-   (Choose the version that includes MySQL/MariaDB and phpMyAdmin.)
+### Option A (recommended): Docker Compose
 
-2. **Start the MySQL module** in the XAMPP Control Panel:
-   - Open **XAMPP Control Panel**
-   - Click **Start** next to **Apache** (optional, only if you want to use phpMyAdmin via Apache)
-   - Click **Start** next to **MySQL**  
-   MySQL should show a green “Running” status.
+From the project root:
 
-3. **Open phpMyAdmin** in your browser:
-   - Go to: **http://localhost/phpmyadmin**  
-   (If that doesn’t work, try **http://127.0.0.1/phpmyadmin**)
+```powershell
+docker compose up -d postgres
+```
+
+This starts Postgres on `localhost:5432` with:
+- DB: `ancheta_apartment`
+- User: `postgres`
+- Pass: `postgres`
+
+### Option B: Local Postgres
+
+Install Postgres 14+ and ensure you have a database named `ancheta_apartment`.
 
 ---
 
-## Step 2: Create the Database in phpMyAdmin
+## Step 2: Create your `.env`
 
-1. In phpMyAdmin, click the **Databases** tab.
-2. Under **Create database**:
-   - **Database name:** `ancheta_apartment`
-   - **Collation:** leave as default (e.g. `utf8mb4_general_ci`)
-3. Click **Create**.  
-   You should see `ancheta_apartment` in the left sidebar.
+Create a root `.env` file (not committed). Use `config/env.example` as a guide.
 
-**Note:** Default MySQL user is usually `root` with no password. If you set a password during XAMPP setup, use it in Step 4.
+Minimum required:
+- `JWT_SECRET`
+- `DATABASE_URL` **or** `DB_HOST/DB_PORT/DB_NAME/DB_USER/DB_PASSWORD`
 
 ---
 
 ## Step 3: Set Up the Backend
 
-1. Open **PowerShell** and go to the project’s `backend` folder:
-   ```powershell
-   cd "D:\Janie PC\School\NU\3rd Year\2nd Term\ECommerce\FINALS\Trial 5\backend"
-   ```
-
-2. Install dependencies:
+1. Install dependencies:
    ```powershell
    npm install
    ```
 
-3. Copy the environment file:
-   ```powershell
-   copy .env.example .env
-   ```
-
-4. Edit **`backend\.env`** in any text editor and set the database settings.  
-   For a default XAMPP MySQL setup, use:
-   ```env
-   DB_HOST=localhost
-   DB_PORT=3306
-   DB_NAME=ancheta_apartment
-   DB_USER=root
-   DB_PASSWORD=
-   ```  
-   If you set a MySQL password in XAMPP, put it in `DB_PASSWORD`.
-
-5. Create the tables (migration):
+2. Create the tables (migration):
    ```powershell
    npm run migrate
    ```  
    You should see: `✅ Database tables created successfully`.
 
-6. Insert sample data (seed):
+3. Insert sample data (seed):
    ```powershell
    npm run seed
    ```  
    You should see the default login credentials printed.
 
-7. Start the backend server:
+4. Start the backend server:
    ```powershell
-   npm run dev
+   npm run server
    ```  
-   Keep this terminal open. The backend runs at **http://localhost:3000**.
+   Keep this terminal open. The backend runs at **http://localhost:5000** (or your `PORT`).
 
 ---
 
 ## Step 4: Set Up the Frontend
 
-1. Open a **new** PowerShell window and go to the frontend folder:
-   ```powershell
-   cd "D:\Janie PC\School\NU\3rd Year\2nd Term\ECommerce\FINALS\Trial 5\frontend"
-   ```
-
-2. Install dependencies:
-   ```powershell
-   npm install
-   ```
-
-3. Copy the environment file:
-   ```powershell
-   copy .env.example .env
-   ```
-
-4. You usually don’t need to change **`frontend\.env`**. It should contain:
+1. You usually don’t need to set a separate frontend `.env`. If you do, you can set:
    ```env
-   VITE_API_URL=http://localhost:3000/api
+   VITE_API_URL=/api
+   VITE_PROXY_TARGET=http://localhost:5000
    ```
 
-5. Start the frontend:
+2. Start the frontend:
    ```powershell
    npm run dev
    ```  

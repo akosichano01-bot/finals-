@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const api = axios.create({
-  // Siguraduhin na ito ang tamang URL ng iyong backend service sa Render
-  baseURL: 'https://finals-tenant-system.onrender.com/api',
+  // Prefer env-configured API URL; fall back to same-origin (/api) which works with Vite proxy + prod SPA hosting.
+  baseURL: import.meta.env?.VITE_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json'
   },
@@ -31,6 +31,7 @@ api.interceptors.response.use(
     // Kung ang server ay nagbalik ng 401 (Unauthorized), ibig sabihin expired na ang session
     if (error.response && error.response.status === 401) {
       localStorage.removeItem('token');
+      localStorage.removeItem('user');
       // Maaari mong i-redirect ang user sa login page dito kung kinakailangan
     }
     return Promise.reject(error);

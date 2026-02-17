@@ -22,19 +22,18 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-[#0f172a]">
-      {/* White Card Container */}
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-2xl p-8 transform transition-all">
-        <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
-            Ancheta's Apartment
+    <div className="min-h-screen flex items-center justify-center p-4 bg-slate-50">
+      <div className="card w-full max-w-md p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            Ancheta Apartment
           </h1>
-          <p className="text-slate-500 mt-2 font-medium">Management System</p>
+          <p className="text-slate-500 mt-1 text-sm">Management System</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1">
+            <label className="input-label">
               Email
             </label>
             <input
@@ -48,7 +47,7 @@ const Login = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-slate-700 mb-2 ml-1">
+            <label className="input-label">
               Password
             </label>
             <input
@@ -61,12 +60,12 @@ const Login = () => {
             />
           </div>
 
-          <button type="submit" className="btn-primary mt-4">
+          <button type="submit" className="btn-primary mt-4 w-full">
             Sign in
           </button>
         </form>
 
-        <div className="mt-8 pt-6 border-t border-slate-100">
+        <div className="mt-6 pt-4 border-t border-slate-100">
           <p className="text-center text-xs text-slate-400 font-medium">
             Secure access for managers, staff, and tenants.
           </p>

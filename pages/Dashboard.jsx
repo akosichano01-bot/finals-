@@ -72,7 +72,9 @@ export default function Dashboard() {
                       <td className="table-td font-semibold text-slate-900">₱{bill.amount?.toLocaleString()}</td>
                       <td className="table-td text-slate-600">{new Date(bill.due_date).toLocaleDateString()}</td>
                       <td className="table-td">
-                        <span className={`badge ${bill.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{bill.status}</span>
+                        <span className={`badge ${bill.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'} uppercase tracking-wide`}>
+                          {bill.status}
+                        </span>
                       </td>
                     </tr>
                   ))}
@@ -122,7 +124,9 @@ export default function Dashboard() {
                       <td className="table-td font-semibold text-slate-900">₱{bill.amount?.toLocaleString()}</td>
                       <td className="table-td text-slate-600">{new Date(bill.due_date).toLocaleDateString()}</td>
                       <td className="table-td">
-                        <span className={`badge ${bill.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{bill.status}</span>
+                        <span className={`badge ${bill.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'} uppercase tracking-wide`}>
+                          {bill.status}
+                        </span>
                       </td>
                     </tr>
                   ))}

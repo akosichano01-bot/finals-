@@ -39,7 +39,7 @@ router.get('/', authenticate, async (req, res) => {
         safeQuery('SELECT COUNT(*) as count FROM bills'),
         safeQuery("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM bills WHERE status = 'unpaid'"),
         safeQuery("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM payments WHERE status = 'completed'"),
-        safeQuery("SELECT COUNT(*) as count FROM maintenance WHERE status = 'pending'")
+        safeQuery("SELECT COUNT(*) as count FROM maintenance_requests WHERE status = 'pending'")
       ]);
 
       dashboardData.stats = {
@@ -73,7 +73,7 @@ router.get('/', authenticate, async (req, res) => {
       const [unpaidBills, totalPayments, pendingMaintenance] = await Promise.all([
         safeQuery("SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total FROM bills WHERE tenant_id = $1 AND status = 'unpaid'", [req.user.id]),
         safeQuery(`SELECT COUNT(*) as count, COALESCE(SUM(p.amount), 0) as total FROM payments p JOIN bills b ON p.bill_id = b.id WHERE b.tenant_id = $1 AND p.status = 'completed'`, [req.user.id]),
-        safeQuery("SELECT COUNT(*) as count FROM maintenance WHERE tenant_id = $1 AND status = 'pending'", [req.user.id])
+        safeQuery("SELECT COUNT(*) as count FROM maintenance_requests WHERE tenant_id = $1 AND status = 'pending'", [req.user.id])
       ]);
 
       dashboardData.stats = {

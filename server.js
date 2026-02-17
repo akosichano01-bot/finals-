@@ -1,5 +1,6 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -47,8 +48,13 @@ app.use((req, res, next) => {
   next();
 });
 
-// --- STATIC FILES FIX ---
-app.use(express.static(path.join(__dirname, 'dist')));
+// --- STATIC FILES (Production SPA build) ---
+const distDir = path.join(__dirname, 'dist');
+const distIndex = path.join(distDir, 'index.html');
+const hasDist = fs.existsSync(distIndex);
+if (hasDist) {
+  app.use(express.static(distDir));
+}
 
 // API Routes
 app.use('/api/auth', authRoutes);
@@ -65,13 +71,25 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'API is running' });
 });
 
-// --- SPA FALLBACK FIX ---
-// Lahat ng hindi nagsisimula sa /api ay ituturo sa frontend
-app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-  }
-});
+// Helpful root response in dev (avoids ENOENT if dist/ is not built)
+if (!hasDist) {
+  app.get('/', (req, res) => {
+    res.json({
+      status: 'ok',
+      message: 'Backend is running. Start the Vite dev server at http://localhost:5173',
+    });
+  });
+}
+
+// --- SPA FALLBACK (only when dist/ exists) ---
+if (hasDist) {
+  // Lahat ng hindi nagsisimula sa /api ay ituturo sa frontend
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(distIndex);
+    }
+  });
+}
 
 // Start server
 app.listen(PORT, async () => {

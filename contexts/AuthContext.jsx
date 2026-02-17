@@ -39,6 +39,7 @@ export function AuthProvider({ children }) {
 
       // I-save ang session
       localStorage.setItem('token', token)
+      localStorage.setItem('user', JSON.stringify(user))
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`
       setUser(user)
       
@@ -52,6 +53,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('user')
     delete api.defaults.headers.common['Authorization']
     setUser(null)
     setLoading(false)

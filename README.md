@@ -12,9 +12,9 @@ A comprehensive apartment management system with billing, PayMongo payments, and
 
 ## Tech Stack
 
-- **Backend**: Node.js, Express, MySQL/MariaDB
+- **Backend**: Node.js, Express, PostgreSQL
 - **Frontend**: React, Vite, Tailwind CSS
-- **Database**: MySQL (phpMyAdmin / XAMPP)
+- **Database**: PostgreSQL (`docker-compose.yml` included)
 - **Payments**: PayMongo
 
 ---
@@ -23,23 +23,21 @@ A comprehensive apartment management system with billing, PayMongo payments, and
 
 When you open the project on another day, do this in order:
 
-1. **Start MySQL**
-   - Open **XAMPP Control Panel**
-   - Click **Start** next to **MySQL** (and **Apache** if you use phpMyAdmin in the browser)
+1. **Start PostgreSQL**
+   - If using Docker: run `docker compose up -d postgres`
+   - Or start your local PostgreSQL service
 
 2. **Start the backend**
    ```powershell
-   cd "D:\Janie PC\School\NU\3rd Year\2nd Term\ECommerce\FINALS\Trial 5\backend"
-   npm run dev
+   npm run server
    ```
    Leave this terminal open. You should see:
-   - `Server running on http://localhost:3000`
+   - `Server running on http://localhost:5000` (or your `PORT`)
    - `Database connected`
    - `PayMongo configured` (if your `.env` has the key)
 
 3. **Start the frontend** (new terminal)
    ```powershell
-   cd "D:\Janie PC\School\NU\3rd Year\2nd Term\ECommerce\FINALS\Trial 5\frontend"
    npm run dev
    ```
 
@@ -58,9 +56,10 @@ See **[SETUP.md](./SETUP.md)** for full instructions.
 **Short version:**
 
 1. Install **XAMPP** and start **MySQL**; create database **ancheta_apartment** in phpMyAdmin.
-2. **Backend:** `cd backend` → `npm install` → `copy .env.example .env` → edit `.env` (DB and PayMongo) → `npm run migrate` → `npm run seed` → `npm run dev`
-3. **Frontend:** New terminal → `cd frontend` → `npm install` → `copy .env.example .env` → `npm run dev`
-4. Open **http://localhost:5173** and log in.
+2. Start Postgres (recommended: `docker compose up -d postgres`).
+3. Create a root `.env` (use `config/env.example` as a guide). Set at least `JWT_SECRET` and your DB connection.
+4. Run: `npm install` → `npm run migrate` → `npm run seed` → `npm run server` → (new terminal) `npm run dev`
+5. Open **http://localhost:5173** and log in.
 
 ### Default logins
 
@@ -74,14 +73,14 @@ See **[SETUP.md](./SETUP.md)** for full instructions.
 
 If you see **"PayMongo not configured"** when a tenant tries to pay:
 
-1. Open **backend/.env** and add (or fix) the line:
+1. Open the root **`.env`** and add (or fix) the line:
    ```env
    PAYMONGO_SECRET_KEY
    ```
-2. **Restart the backend**: stop the terminal where `npm run dev` is running (Ctrl+C), then run `npm run dev` again.
+2. **Restart the backend**: stop the terminal where `npm run server` is running (Ctrl+C), then run `npm run server` again.
 3. On startup you should see: `PayMongo configured (tenant payments)`.
 
-The key is loaded from the **backend** folder’s `.env` only when the server starts, so changes require a restart.
+The key is loaded from `.env` only when the server starts, so changes require a restart.
 
 ---
 
@@ -163,8 +162,8 @@ The system uses **rent-only** billing. If you still have old bills (e.g. "Utilit
 
 - The app shows a **Rental Law (PDF)** link in the top bar.
 - For it to work, place your PDF file here:
-  - **Path:** `frontend/public/ra_9653_2009.pdf`
-- If the file is in another folder (e.g. `ECommerce\FINALS\ra_9653_2009.pdf`), copy it into `frontend/public/` and name it `ra_9653_2009.pdf`.
+  - **Path:** `public/ra_9653_2009.pdf`
+- If the file is in another folder (e.g. `ECommerce\\FINALS\\ra_9653_2009.pdf`), copy it into `public/` and name it `ra_9653_2009.pdf`.
 
 ---
 
@@ -172,8 +171,13 @@ The system uses **rent-only** billing. If you still have old bills (e.g. "Utilit
 
 ```
 .
-├── backend/     # Express API (run with: npm run dev)
-├── frontend/    # React app (run with: npm run dev)
+├── server.js    # Express API (and SPA hosting in prod)
+├── routes/      # Express routes
+├── scripts/     # migrate/seed scripts (Postgres)
+├── pages/       # React pages
+├── components/  # React components
+├── contexts/    # React context
+├── public/      # Static assets (PDF, etc.)
 ├── README.md    # This file
 └── SETUP.md     # Detailed setup guide
 ```
@@ -182,9 +186,9 @@ The system uses **rent-only** billing. If you still have old bills (e.g. "Utilit
 
 ## Quick reference
 
-| When you open the project again | Start MySQL (XAMPP) → `cd backend` → `npm run dev` → new terminal → `cd frontend` → `npm run dev` → open http://localhost:5173 |
-| PayMongo not configured         | Add `PAYMONGO_SECRET_KEY=sk_test_...` in `backend/.env` and **restart the backend** |
-| Remove old utilities/rent data   | In phpMyAdmin: `DELETE FROM bills WHERE type != 'Rent';` or delete all bills and use "Generate monthly rent bills" |
-| Reset DB and repopulate         | phpMyAdmin: drop DB **ancheta_apartment** → create it again → in `backend`: `npm run migrate` then `npm run seed` |
+| When you open the project again | Start Postgres → `npm run server` → new terminal → `npm run dev` → open http://localhost:5173 |
+| PayMongo not configured         | Add `PAYMONGO_SECRET_KEY=sk_test_...` in `.env` and **restart the backend** |
+| Remove old utilities/rent data   | In your SQL client: `DELETE FROM bills WHERE type != 'Rent';` or delete all bills and use "Generate monthly rent bills" |
+| Reset DB and repopulate         | Drop & recreate DB → `npm run migrate` then `npm run seed` |
 
 For more detail, see **SETUP.md**.

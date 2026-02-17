@@ -26,7 +26,9 @@ export default function Bills() {
   const fetchBills = async () => {
     try {
       const response = await api.get('/bills')
-      setBills(response.data.bills)
+      // Backend returns an array; keep backward compatibility if shape changes.
+      const data = response.data
+      setBills(Array.isArray(data) ? data : (data?.bills || []))
     } catch (error) {
       toast.error('Failed to load bills')
     } finally {
@@ -125,7 +127,9 @@ export default function Bills() {
                 <td className="table-td font-semibold text-slate-900">₱{bill.amount?.toLocaleString()}</td>
                 <td className="table-td text-slate-600">{new Date(bill.due_date).toLocaleDateString()}</td>
                 <td className="table-td">
-                  <span className={`badge ${bill.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : bill.status === 'overdue' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'}`}>{bill.status}</span>
+                  <span className={`badge ${bill.status === 'paid' ? 'bg-emerald-100 text-emerald-800' : bill.status === 'overdue' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800'} uppercase tracking-wide`}>
+                    {bill.status}
+                  </span>
                 </td>
                 {canEdit && (
                   <td className="table-td">

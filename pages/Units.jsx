@@ -129,8 +129,16 @@ export default function Units() {
                 <td className="table-td text-slate-600">{unit.floor}</td>
                 <td className="table-td text-slate-600">{unit.type || '–'}</td>
                 <td className="table-td font-semibold text-slate-900">₱{unit.rent_amount?.toLocaleString()}</td>
-                <td className="table-td"><span className={`badge ${unit.status === 'occupied' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>{unit.status}</span></td>
-                <td className="table-td"><span className={`badge ${(unit.maintenance_status || 'none') === 'none' ? 'bg-slate-100 text-slate-600' : unit.maintenance_status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-orange-100 text-orange-800'}`}>{unit.maintenance_status || 'none'}</span></td>
+                <td className="table-td">
+                  <span className={`badge ${unit.status === 'occupied' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'} uppercase tracking-wide`}>
+                    {unit.status}
+                  </span>
+                </td>
+                <td className="table-td">
+                  <span className={`badge ${(unit.maintenance_status || 'none') === 'none' ? 'bg-slate-100 text-slate-600' : unit.maintenance_status === 'pending' ? 'bg-amber-100 text-amber-800' : 'bg-orange-100 text-orange-800'} uppercase tracking-wide`}>
+                    {unit.maintenance_status || 'none'}
+                  </span>
+                </td>
                 <td className="table-td text-slate-600">{unit.tenant_name || '–'}</td>
                 {canEditUnit && (
                   <td className="table-td">

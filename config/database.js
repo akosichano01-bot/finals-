@@ -1,20 +1,36 @@
+// config/database.js
+// Postgres connection helper (works for local docker-compose and Render DATABASE_URL)
 import pkg from 'pg';
-const { Pool } = pkg;
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
+
+const { Pool } = pkg;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
-// Binago ang pangalan dito sa 'internalPool' para hindi mag-conflict sa exports
+const isProd = process.env.NODE_ENV === 'production';
+const useSsl =
+  process.env.DATABASE_SSL === 'true' ||
+  (isProd && !!process.env.DATABASE_URL); // Render-style
+
+const poolConfig = process.env.DATABASE_URL
+  ? { connectionString: process.env.DATABASE_URL }
+  : {
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT || 5432),
+      database: process.env.DB_NAME || 'ancheta_apartment',
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'postgres',
+    };
+
+// Internal pool instance (export wrappers below to avoid accidental .end() usage from routes)
 const internalPool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false 
-  }
+  ...poolConfig,
+  ...(useSsl ? { ssl: { rejectUnauthorized: false } } : {}),
 });
 
 // --- ITO ANG MGA EXPORTS ---

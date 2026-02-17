@@ -116,7 +116,7 @@ export default function Maintenance() {
                         : request.priority === 'medium'
                         ? 'bg-yellow-100 text-yellow-800'
                         : 'bg-blue-100 text-blue-800'
-                    }`}
+                    } uppercase tracking-wide`}
                   >
                     {request.priority}
                   </span>
@@ -129,7 +129,7 @@ export default function Maintenance() {
                         : request.status === 'cancelled'
                         ? 'bg-gray-100 text-gray-800'
                         : 'bg-yellow-100 text-yellow-800'
-                    }`}
+                    } uppercase tracking-wide`}
                   >
                     {request.status.replace('_', ' ')}
                   </span>

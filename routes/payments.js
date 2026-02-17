@@ -16,8 +16,7 @@ router.get('/', authenticate, async (req, res) => {
   try {
     const { tenant_id, bill_id, status } = req.query;
     
-    // Inayos ang JOINs: Ginawang LEFT JOIN ang 'bills' at 'users' 
-    // para hindi mawala ang record kung sakaling may na-delete na data.
+    // Inayos ang JOINs para hindi mag-fail kahit kulang ang data sa ibang tables
     let query = `
       SELECT p.*, 
              b.type as bill_type, b.amount as bill_amount, b.description as bill_description,
@@ -54,14 +53,43 @@ router.get('/', authenticate, async (req, res) => {
 
     const result = await pool.query(query, params);
     
-    // Importante: Laging mag-return ng array (result.rows)
-    // Ito ang gamot sa blank screen
+    // FIX: Nagpadala tayo ng object kung ang frontend mo ay gumagamit ng 'data.payments'
+    // Pero kung direct array ang gamit, res.json(result.rows || []) ay sapat na.
+    // Gagamitin natin ang direct array base sa error na nakita natin.
     res.json(result.rows || []); 
+    
   } catch (error) {
     console.error('Get payments error:', error.message);
-    // Nagbabalik ng empty array imbes na 500 status 
-    // para magpakita ang "No Data" sa frontend imbes na mag-crash.
+    // Laging magbalik ng array para hindi mag-crash ang .map() sa frontend
     res.json([]); 
+  }
+});
+
+// --- MANUAL RECORDING ---
+router.post('/', authenticate, authorize('manager', 'staff'), async (req, res) => {
+  try {
+    const { bill_id, amount } = req.body;
+    
+    if (!bill_id || !amount) {
+      return res.status(400).json({ message: 'Missing bill_id or amount' });
+    }
+
+    // Siguraduhin na ang transaction_id ay unique
+    const transactionId = `MANUAL-${Date.now()}`;
+
+    await pool.query(
+      `INSERT INTO payments (bill_id, amount, payment_method, transaction_id, status) 
+       VALUES ($1, $2, 'manual', $3, 'completed')`,
+      [bill_id, amount, transactionId]
+    );
+
+    // I-update ang status ng bill pagkatapos magbayad
+    await pool.query('UPDATE bills SET status = $1 WHERE id = $2', ['paid', bill_id]);
+
+    res.status(201).json({ message: 'Payment recorded successfully' });
+  } catch (error) {
+    console.error('Manual record error:', error.message);
+    res.status(500).json({ message: 'Server error' });
   }
 });
 
@@ -98,27 +126,6 @@ router.post('/paymongo-create', authenticate, async (req, res) => {
   } catch (error) {
     console.error('PayMongo error:', error.message);
     res.status(500).json({ message: 'Payment link creation failed' });
-  }
-});
-
-// --- MANUAL RECORDING ---
-router.post('/', authenticate, authorize('manager', 'staff'), async (req, res) => {
-  try {
-    const { bill_id, amount } = req.body;
-    
-    // Inayos ang manual insert para mag-match sa bagong SQL table mo
-    await pool.query(
-      `INSERT INTO payments (bill_id, amount, payment_method, transaction_id, status) 
-       VALUES ($1, $2, 'manual', $3, 'completed')`,
-      [bill_id, amount, `MANUAL-${Date.now()}`]
-    );
-
-    await pool.query('UPDATE bills SET status = $1 WHERE id = $2', ['paid', bill_id]);
-
-    res.status(201).json({ message: 'Payment recorded successfully' });
-  } catch (error) {
-    console.error('Manual record error:', error.message);
-    res.status(500).json({ message: 'Server error' });
   }
 });
 

@@ -29,7 +29,7 @@ When you open the project on another day, do this in order:
 
 2. **Start the backend**
    ```powershell
-   cd "D:\Janie PC\School\NU\3rd Year\2nd Term\ECommerce\FINALS\Trial 5\backend"
+   cd backend
    npm run dev
    ```
    Leave this terminal open. You should see:
@@ -39,7 +39,7 @@ When you open the project on another day, do this in order:
 
 3. **Start the frontend** (new terminal)
    ```powershell
-   cd "D:\Janie PC\School\NU\3rd Year\2nd Term\ECommerce\FINALS\Trial 5\frontend"
+   cd frontend
    npm run dev
    ```
 
@@ -99,7 +99,7 @@ You can clear all data and load fresh seed data in either of these ways.
 5. Create the database again: click **New** in the left sidebar → Database name: **ancheta_apartment** → **Create**.  
 6. **From your project folder**, in a terminal run:
    ```powershell
-   cd "D:\Janie PC\School\NU\3rd Year\2nd Term\ECommerce\FINALS\Trial 5\backend"
+   cd backend
    npm run migrate
    npm run seed
    ```
@@ -122,7 +122,7 @@ You can clear all data and load fresh seed data in either of these ways.
    ```
 4. In a terminal, from the **backend** folder, run:
    ```powershell
-   cd "D:\Janie PC\School\NU\3rd Year\2nd Term\ECommerce\FINALS\Trial 5\backend"
+   cd backend
    npm run seed
    ```
 5. Restart the backend if it’s running, then use the app with the default logins again.
@@ -188,3 +188,4 @@ The system uses **rent-only** billing. If you still have old bills (e.g. "Utilit
 | Reset DB and repopulate         | phpMyAdmin: drop DB **ancheta_apartment** → create it again → in `backend`: `npm run migrate` then `npm run seed` |
 
 For more detail, see **SETUP.md**.
+
